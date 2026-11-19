@@ -53,8 +53,6 @@ object NativeBridge {
      */
     external fun convert(inputs: Array<String>, outDir: String, recursive: Boolean, mode: Int, key: String, listener: ProgressListener): Int
 
-    /**
-     *  请求取消正在进行的转换。
-     */
+    /** 请求取消正在进行的转换。 */
     external fun cancel()
 }

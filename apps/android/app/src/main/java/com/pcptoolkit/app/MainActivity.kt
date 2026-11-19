@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.core.content.edit
 
 class MainActivity : ComponentActivity() {
     private val vm: ConvertViewModel by viewModels()
@@ -60,13 +61,16 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** 可选语言: (语言代码, 语言自身名称)。新增语言时在这里加一项。 */
-val LANGS = listOf("zh_CN" to "简体中文", "en_US" to "English")
+/** 可选语言列表。 */
+val LANGS = listOf(
+    "zh_CN" to "简体中文",
+    "en_US" to "English"
+)
 
 @Composable
 fun AppTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme(),
+        colorScheme = lightColorScheme(),
         content = content
     )
 }
@@ -90,7 +94,7 @@ fun Screen(vm: ConvertViewModel, prefs: SharedPreferences) {
         lang = lang,
         onLanguageChange = { code ->
             if (NativeBridge.setLanguage(code)) {
-                prefs.edit().putString("lang", code).apply()
+                prefs.edit { putString("lang", code) }
                 lang = code
             }
         }
