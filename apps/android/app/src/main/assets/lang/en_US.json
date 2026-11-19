@@ -76,4 +76,20 @@
   "app.read_failed": "Failed to read file",
   "app.export_failed": "Failed to write",
   "app.result_title": "Results"
+  ,
+  "nav.menu": "Menu",
+  "nav.close_menu": "Close menu",
+  "nav.home": "Home",
+  "nav.rton": "RTON Conversion",
+  "menu.script_tasks": "Script Tasks",
+  "menu.level_editor": "Level Editor",
+  "menu.dev_tools": "Developer Tools",
+  "common.cancel": "Cancel",
+  "settings.open": "Settings",
+  "settings.back": "Back",
+  "settings.title": "Settings",
+  "settings.general": "General",
+  "settings.appearance": "Appearance",
+  "settings.other": "Other",
+  "settings.language": "Language"
 }

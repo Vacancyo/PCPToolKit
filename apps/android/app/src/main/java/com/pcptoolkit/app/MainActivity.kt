@@ -11,30 +11,29 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -61,8 +60,8 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** 可选语言: (语言代码, 顶栏按钮文字)。新增语言时在这里加一项。 */
-val LANGS = listOf("zh_CN" to "中文", "en_US" to "EN")
+/** 可选语言: (语言代码, 语言自身名称)。新增语言时在这里加一项。 */
+val LANGS = listOf("zh_CN" to "简体中文", "en_US" to "English")
 
 @Composable
 fun AppTheme(content: @Composable () -> Unit) {
@@ -72,7 +71,7 @@ fun AppTheme(content: @Composable () -> Unit) {
     )
 }
 
-private fun t(k: String) = NativeBridge.translate(k)
+internal fun t(k: String) = NativeBridge.translate(k)
 
 private fun stageKey(s: Stage) = when (s) {
     Stage.IDLE -> ""
@@ -83,35 +82,33 @@ private fun stageKey(s: Stage) = when (s) {
     Stage.CANCELLED -> "app.cancelled"
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Screen(vm: ConvertViewModel, prefs: SharedPreferences) {
     var lang by remember { mutableStateOf(prefs.getString("lang", "zh_CN") ?: "zh_CN") }
 
+    PcpShell(
+        lang = lang,
+        onLanguageChange = { code ->
+            if (NativeBridge.setLanguage(code)) {
+                prefs.edit().putString("lang", code).apply()
+                lang = code
+            }
+        }
+    ) {
+        RtonPage(vm)
+    }
+}
+
+@Composable
+private fun RtonPage(vm: ConvertViewModel) {
     val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { vm.addFiles(it) }
     val pickDir = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { if (it != null) vm.outTree = it }
 
-    // key(lang): 语言变化时整体重建,所有 t(...) 重新取文本
-    key(lang) {
-        Scaffold(topBar = {
-            TopAppBar(
-                title = { Text(t("app.title")) },
-                actions = {
-                    for ((code, label) in LANGS) {
-                        TextButton(onClick = {
-                            if (NativeBridge.setLanguage(code)) {
-                                prefs.edit().putString("lang", code).apply()
-                                lang = code
-                            }
-                        }) { Text(label) }
-                    }
-                }
-            )
-        }) { pad ->
-            LazyColumn(
-                modifier = Modifier.padding(pad).padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize().navigationBarsPadding().padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
                 // 1. 选文件
                 item {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -195,7 +192,5 @@ fun Screen(vm: ConvertViewModel, prefs: SharedPreferences) {
                     )
                 }
                 item { Spacer(Modifier.padding(8.dp)) }
-            }
-        }
     }
 }
