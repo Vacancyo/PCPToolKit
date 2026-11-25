@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">android</string>
+    <string name="accessibility_label">PCP 脚本自动化</string>
+    <string name="accessibility_description">执行脚本中的点击、滑动和屏幕识别操作。</string>
+    <string name="floating_channel">PCP 悬浮窗</string>
+    <string name="floating_notification_title">PCP 悬浮窗</string>
+    <string name="floating_notification_text">脚本控制面板正在运行</string>
 </resources>

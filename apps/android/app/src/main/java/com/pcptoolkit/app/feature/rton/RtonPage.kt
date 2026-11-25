@@ -1,4 +1,4 @@
-package com.pcptoolkit.app
+package com.pcptoolkit.app.feature.rton
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pcptoolkit.app.t
 
 private val SuccessColor = Color(0xFF177245)
 

@@ -8,10 +8,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(TOOLKIT_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../../../../../..)
 
 add_subdirectory(${TOOLKIT_ROOT}/libs/common ${CMAKE_BINARY_DIR}/common)
-add_subdirectory(${TOOLKIT_ROOT}/tools/rton  ${CMAKE_BINARY_DIR}/rton)
+add_subdirectory(${TOOLKIT_ROOT}/libs/script ${CMAKE_BINARY_DIR}/script)
+add_subdirectory(${TOOLKIT_ROOT}/libs/rton ${CMAKE_BINARY_DIR}/rton)
 
 add_library(pcpjni SHARED
   JniUtils.cpp
   RtonJni.cpp
+  ScriptJni.cpp
+  VisionJni.cpp
 )
-target_link_libraries(pcpjni PRIVATE rton_core)
+target_link_libraries(pcpjni PRIVATE rton_core script_core)

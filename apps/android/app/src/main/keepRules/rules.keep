@@ -10,3 +10,16 @@
 #-keepclassmembers class fqcn.of.javascript.interface.for.webview {
 #   public *;
 #}
+
+-keepclasseswithmembernames,includedescriptorclasses class com.pcptoolkit.app.core.native.NativeBridge {
+    native <methods>;
+}
+-keep interface com.pcptoolkit.app.core.native.ProgressListener { *; }
+-keepclasseswithmembernames,includedescriptorclasses class com.pcptoolkit.app.feature.script.ScriptEngine {
+    native <methods>;
+}
+-keep interface com.pcptoolkit.app.feature.script.ScriptHost { *; }
+-keep class com.pcptoolkit.app.feature.script.MatchResult { *; }
+-keepclasseswithmembernames,includedescriptorclasses class com.pcptoolkit.app.feature.script.ScriptVision {
+    native <methods>;
+}

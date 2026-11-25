@@ -1,0 +1,5 @@
+# 在右下角区域识别“日常”按钮，找到后等待并点击其中心
+exist coord &MAIN.DAILY 0.5 0.81 0.68 1.0
+if $FOUND:
+    wait 500
+    tap $MATCH_CX $MATCH_CY

@@ -91,7 +91,7 @@ Common checks:
 
 ### Build the native core
 
-The root CMake project builds the common library and the static RTON conversion library. It does not currently produce a desktop executable.
+The root CMake project builds the common library, the RTON conversion library, and the script runtime library. It does not currently produce a desktop executable.
 
 ```powershell
 cmake -S . -B build/core -DCMAKE_BUILD_TYPE=Release
@@ -103,15 +103,14 @@ cmake --build build/core --config Release
 ```text
 apps/
   android/          Android app, Compose UI, and JNI bridge
-lang/               Source files for application translations
 libs/
   common/           Shared file I/O and internationalization code
-tools/
   rton/             RTON/JSON codecs, encryption, and batch conversion
+  script/           Script language, runtime, and template matching
 CMakeLists.txt      Root CMake project
 ```
 
-The Android app reads language files from `apps/android/app/src/main/assets/lang/`. When UI text changes, update both the `lang/` source files and the app assets.
+The Android app reads language files directly from `apps/android/app/src/main/assets/lang/`. That directory is the single source of truth for application text.
 
 ## Contributing
 

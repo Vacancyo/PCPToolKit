@@ -1,4 +1,4 @@
-package com.pcptoolkit.app
+package com.pcptoolkit.app.feature.rton
 
 import android.app.Application
 import android.content.ContentResolver
@@ -14,6 +14,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import com.pcptoolkit.app.core.native.NativeBridge
 import java.io.File
 import java.io.IOException
 import kotlin.concurrent.thread

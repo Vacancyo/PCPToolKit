@@ -1,4 +1,4 @@
-package com.pcptoolkit.app
+package com.pcptoolkit.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -62,6 +62,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.pcptoolkit.app.LANGS
+import com.pcptoolkit.app.feature.home.HomePage
+import com.pcptoolkit.app.feature.script.ScriptsPage
+import com.pcptoolkit.app.t
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -70,7 +74,8 @@ private val SettingsHeadingColor = Color(0xFF187BDE)
 
 private enum class PcpPage(val titleKey: String) {
     HOME("nav.home"),
-    RTON("nav.rton")
+    RTON("nav.rton"),
+    SCRIPTS("nav.scripts")
 }
 
 @Composable
@@ -122,6 +127,7 @@ fun PcpShell(
                         when (page) {
                             PcpPage.HOME -> HomePage()
                             PcpPage.RTON -> rtonContent()
+                            PcpPage.SCRIPTS -> ScriptsPage()
                         }
                     }
                 }
@@ -213,18 +219,6 @@ private fun PcpTopBar(title: String, onMenuClick: () -> Unit) {
 }
 
 @Composable
-private fun HomePage() {
-    Box(Modifier.fillMaxSize()) {
-        Text(
-            text = "PCPToolKit",
-            modifier = Modifier.padding(24.dp),
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-    }
-}
-
-@Composable
 private fun SideMenu(
     modifier: Modifier,
     selected: PcpPage,
@@ -264,7 +258,12 @@ private fun SideMenu(
                     onPageClick = onPageClick
                 )
                 HorizontalDivider()
-                MenuSection(title = t("menu.script_tasks"))
+                MenuSection(
+                    title = t("menu.script_tasks"),
+                    pages = listOf(PcpPage.SCRIPTS),
+                    selected = selected,
+                    onPageClick = onPageClick
+                )
                 HorizontalDivider()
                 MenuSection(title = t("menu.level_editor"))
                 HorizontalDivider()

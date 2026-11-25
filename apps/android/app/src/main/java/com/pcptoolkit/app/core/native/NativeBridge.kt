@@ -1,4 +1,4 @@
-package com.pcptoolkit.app
+package com.pcptoolkit.app.core.native
 
 /**
  *  转换进度回调。在调用 [NativeBridge.convert] 的线程上执行。更新界面时需切换到主线程。

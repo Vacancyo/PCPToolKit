@@ -91,7 +91,7 @@ apps/android/app/build/outputs/apk/debug/app-debug.apk
 
 ### 构建原生核心
 
-仓库根目录的 CMake 工程会构建公共库和 RTON 转换静态库，目前不生成桌面可执行程序。
+仓库根目录的 CMake 工程会构建公共库、RTON 转换库和脚本运行库，目前不生成桌面可执行程序。
 
 ```powershell
 cmake -S . -B build/core -DCMAKE_BUILD_TYPE=Release
@@ -103,15 +103,14 @@ cmake --build build/core --config Release
 ```text
 apps/
   android/          Android 应用、Compose 界面与 JNI 桥接
-lang/               应用语言文件的源文件
 libs/
   common/           文件读写与国际化公共代码
-tools/
-  rton/             RTON/JSON 编解码、加密与批量转换核心
+  rton/             RTON/JSON 编解码、加密与批量转换
+  script/           脚本语言、运行时与图像模板匹配
 CMakeLists.txt      仓库根 CMake 工程
 ```
 
-Android 应用实际读取 `apps/android/app/src/main/assets/lang/` 下的语言文件。修改界面文本时，应同步更新 `lang/` 源文件与应用资源。
+Android 应用直接读取 `apps/android/app/src/main/assets/lang/` 下的语言文件。该目录是应用文案的唯一来源。
 
 ## 参与贡献
 

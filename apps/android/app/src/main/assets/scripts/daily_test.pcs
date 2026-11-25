@@ -1,0 +1,7 @@
+# 主界面“日常”按钮识别测试
+exist rect &MAIN.DAILY 0 0 1 1
+if $FOUND:
+    print "daily found, score=" + $MATCH_SCORE
+    tap $MATCH_CX $MATCH_CY
+else:
+    print "daily not found"

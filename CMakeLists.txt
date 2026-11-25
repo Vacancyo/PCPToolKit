@@ -18,4 +18,10 @@ else()
 endif()
 
 add_subdirectory(libs/common)
-add_subdirectory(tools/rton)
+add_subdirectory(libs/script)
+add_subdirectory(libs/rton)
+
+include(CTest)
+if(BUILD_TESTING)
+  add_subdirectory(libs/script/tests)
+endif()

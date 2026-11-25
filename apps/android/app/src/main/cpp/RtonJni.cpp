@@ -20,22 +20,22 @@ std::atomic<bool> gCancel{false};  ///< 取消标志。cancel() 置位，convert
 extern "C" {
 
 /** @brief 注册一种语言。对应 Kotlin: NativeBridge.addLanguage(code, json): Boolean */
-JNIEXPORT jboolean JNICALL Java_com_pcptoolkit_app_NativeBridge_addLanguage(JNIEnv* env, jobject, jstring code, jstring json) {
+JNIEXPORT jboolean JNICALL Java_com_pcptoolkit_app_core_native_NativeBridge_addLanguage(JNIEnv* env, jobject, jstring code, jstring json) {
     return i18n::addLanguage(jni::toUtf8(env, code), jni::toUtf8(env, json)) ? JNI_TRUE : JNI_FALSE;
 }
 
 /** @brief 切换语言。对应 Kotlin: NativeBridge.setLanguage(code): Boolean */
-JNIEXPORT jboolean JNICALL Java_com_pcptoolkit_app_NativeBridge_setLanguage(JNIEnv* env, jobject, jstring code) {
+JNIEXPORT jboolean JNICALL Java_com_pcptoolkit_app_core_native_NativeBridge_setLanguage(JNIEnv* env, jobject, jstring code) {
     return i18n::setLanguage(jni::toUtf8(env, code)) ? JNI_TRUE : JNI_FALSE;
 }
 
 /** @brief 取翻译文本。对应 Kotlin: NativeBridge.tr(key, args): String */
-JNIEXPORT jstring JNICALL Java_com_pcptoolkit_app_NativeBridge_tr(JNIEnv* env, jobject, jstring key, jobjectArray args) {
+JNIEXPORT jstring JNICALL Java_com_pcptoolkit_app_core_native_NativeBridge_tr(JNIEnv* env, jobject, jstring key, jobjectArray args) {
     return jni::toJString(env, i18n::translate(jni::toUtf8(env, key), jni::toVector(env, args)));
 }
 
 /** @brief 请求取消正在进行的转换。 */
-JNIEXPORT void JNICALL Java_com_pcptoolkit_app_NativeBridge_cancel(JNIEnv*, jobject) {
+JNIEXPORT void JNICALL Java_com_pcptoolkit_app_core_native_NativeBridge_cancel(JNIEnv*, jobject) {
     gCancel = true;
 }
 
@@ -52,7 +52,7 @@ JNIEXPORT void JNICALL Java_com_pcptoolkit_app_NativeBridge_cancel(JNIEnv*, jobj
  *
  *  阻塞线程。必须在后台线程调用。
  */
-JNIEXPORT jint JNICALL Java_com_pcptoolkit_app_NativeBridge_convert(
+JNIEXPORT jint JNICALL Java_com_pcptoolkit_app_core_native_NativeBridge_convert(
         JNIEnv* env, jobject, jobjectArray inputs, jstring outDir, jboolean recursive,
         jint mode, jstring key, jobject listener) {
     rton::ConvertOptions opt;
