@@ -1,9 +1,10 @@
 #include "common/FileIO.h"
-#include "common/I18n.h"
 
 #include <fstream>
 #include <iterator>
 #include <stdexcept>
+
+#include "common/I18n.h"
 
 namespace common {
 

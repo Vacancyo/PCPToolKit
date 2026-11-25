@@ -3,12 +3,12 @@
  */
 #pragma once
 
+#include <string>
+#include <vector>
+
 #include "rton/Reader.h"
 #include "rton/Value.h"
 #include "common/Bytes.h"
-
-#include <string>
-#include <vector>
 
 using common::Bytes;
 

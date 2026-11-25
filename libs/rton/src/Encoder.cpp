@@ -1,7 +1,4 @@
 #include "rton/Encoder.h"
-#include "rton/NumberFormat.h"
-#include "rton/RtonFormat.h"
-#include "common/I18n.h"
 
 #include <cctype>
 #include <cerrno>
@@ -10,6 +7,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <stdexcept>
+
+#include "rton/NumberFormat.h"
+#include "rton/RtonFormat.h"
+#include "common/I18n.h"
 
 using std::string;
 

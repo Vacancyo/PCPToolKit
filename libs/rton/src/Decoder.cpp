@@ -1,10 +1,11 @@
 #include "rton/Decoder.h"
-#include "rton/NumberFormat.h"
-#include "rton/RtonFormat.h"
-#include "common/I18n.h"
 
 #include <cstdio>
 #include <stdexcept>
+
+#include "rton/NumberFormat.h"
+#include "rton/RtonFormat.h"
+#include "common/I18n.h"
 
 using std::string;
 

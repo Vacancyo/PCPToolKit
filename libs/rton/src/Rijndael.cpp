@@ -1,8 +1,9 @@
 #include "rton/Rijndael.h"
-#include "common/I18n.h"
 
 #include <cstring>
 #include <stdexcept>
+
+#include "common/I18n.h"
 
 namespace rton {
 

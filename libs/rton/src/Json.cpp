@@ -1,10 +1,11 @@
 #include "rton/Json.h"
-#include "common/I18n.h"
 
 #include <cctype>
 #include <cstdint>
 #include <cstdio>
 #include <stdexcept>
+
+#include "common/I18n.h"
 
 using std::string;
 

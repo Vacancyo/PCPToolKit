@@ -3,11 +3,11 @@
  */
 #pragma once
 
-#include "rton/Value.h"
-#include "common/Bytes.h"
-
 #include <string>
 #include <unordered_map>
+
+#include "rton/Value.h"
+#include "common/Bytes.h"
 
 using common::Bytes;
 

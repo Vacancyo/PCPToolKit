@@ -1,10 +1,11 @@
 #include "rton/Crypto.h"
-#include "rton/MD5.h"
-#include "rton/Rijndael.h"
-#include "common/I18n.h"
 
 #include <cstring>
 #include <stdexcept>
+
+#include "rton/MD5.h"
+#include "rton/Rijndael.h"
+#include "common/I18n.h"
 
 using common::Bytes;
 

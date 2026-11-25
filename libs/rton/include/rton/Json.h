@@ -3,9 +3,9 @@
  */
 #pragma once
 
-#include "rton/Value.h"
-
 #include <string>
+
+#include "rton/Value.h"
 
 namespace rton {
 

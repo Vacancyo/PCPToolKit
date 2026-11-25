@@ -3,9 +3,9 @@
  */
 #pragma once
 
-#include "common/Bytes.h"
-
 #include <string>
+
+#include "common/Bytes.h"
 
 using common::Bytes;
 
