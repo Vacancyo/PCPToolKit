@@ -7,9 +7,9 @@
 #include "rton/Rijndael.h"
 #include "common/I18n.h"
 
-using common::Bytes;
-
 namespace rton {
+
+using common::Bytes;
 
 namespace {
 

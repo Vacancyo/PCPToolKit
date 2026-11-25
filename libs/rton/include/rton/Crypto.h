@@ -7,9 +7,9 @@
 
 #include "common/Bytes.h"
 
-using common::Bytes;
-
 namespace rton {
+
+using common::Bytes;
 
 /**
  *  @brief   判断数据是否为加密 RTON。

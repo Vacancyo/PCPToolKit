@@ -10,9 +10,9 @@
 #include "rton/Value.h"
 #include "common/Bytes.h"
 
-using common::Bytes;
-
 namespace rton {
+
+using common::Bytes;
 
 /**
  *  @brief  RTON 解码器。

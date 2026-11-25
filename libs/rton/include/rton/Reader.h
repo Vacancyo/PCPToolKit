@@ -7,9 +7,9 @@
 
 #include "common/Bytes.h"
 
-using common::Bytes;
-
 namespace rton {
+
+using common::Bytes;
 
 /**
  *  @brief  二进制读取器。所有读取越界时抛出运行时错误。
