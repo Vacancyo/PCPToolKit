@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="7dd309f2-e862-420c-abf6-1803e4d0c772" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../../README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/androidTest/java/com/pcptoolkit/app/ExampleInstrumentedTest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/cpp/JniUtils.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/cpp/JniUtils.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/cpp/JniUtils.h" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/cpp/JniUtils.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/cpp/RtonJni.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/cpp/RtonJni.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/cpp/ScriptJni.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/cpp/ScriptJni.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/cpp/VisionJni.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/cpp/VisionJni.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/MainActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/MainActivity.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/core/native/NativeBridge.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/core/native/NativeBridge.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/feature/home/HomePage.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/feature/home/HomePage.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/feature/rton/ConvertViewModel.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/feature/rton/ConvertViewModel.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/feature/rton/RtonPage.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/feature/rton/RtonPage.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/feature/script/ScriptEngine.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/feature/script/ScriptEngine.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/feature/script/ScriptStore.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/feature/script/ScriptStore.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/feature/script/ScriptVision.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/feature/script/ScriptVision.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/feature/script/ScriptsPage.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/feature/script/ScriptsPage.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/platform/accessibility/AutomationAccessibilityService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/platform/accessibility/AutomationAccessibilityService.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/platform/overlay/FloatingWindowService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/platform/overlay/FloatingWindowService.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/ui/PcpShell.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/ui/PcpShell.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/ui/theme/Color.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/ui/theme/Color.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/ui/theme/Theme.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/ui/theme/Theme.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/ui/theme/Type.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/ui/theme/Type.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/test/java/com/pcptoolkit/app/ExampleUnitTest.kt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/common/include/common/Bytes.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/common/include/common/Bytes.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/common/include/common/FileIO.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/common/include/common/FileIO.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/common/include/common/I18n.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/common/include/common/I18n.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/common/src/FileIO.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/common/src/FileIO.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/common/src/I18n.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/common/src/I18n.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/CMakeLists.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/include/rton/Converter.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/include/rton/Converter.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/include/rton/Crypto.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/include/rton/Crypto.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/include/rton/Decoder.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/include/rton/Decoder.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/include/rton/Encoder.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/include/rton/Encoder.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/include/rton/Json.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/include/rton/Json.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/include/rton/MD5.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/include/rton/MD5.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/include/rton/NumberFormat.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/include/rton/NumberFormat.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/include/rton/Reader.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/include/rton/Reader.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/include/rton/Rijndael.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/include/rton/Rijndael.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/include/rton/RtonConverter.h" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/include/rton/RtonFormat.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/include/rton/RtonFormat.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/include/rton/Value.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/include/rton/Value.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/src/Converter.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/src/Converter.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/src/Crypto.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/src/Crypto.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/src/Decoder.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/src/Decoder.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/src/Encoder.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/src/Encoder.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/src/Json.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/src/Json.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/src/MD5.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/src/MD5.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/src/NumberFormat.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/src/NumberFormat.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/src/Reader.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/src/Reader.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/src/Rijndael.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/src/Rijndael.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/src/RtonConverter.cpp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/script/include/script/Ast.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/script/include/script/Ast.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/script/include/script/Error.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/script/include/script/Error.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/script/include/script/Parser.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/script/include/script/Parser.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/script/include/script/Runtime.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/script/include/script/Runtime.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/script/include/script/TemplateMatcher.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/script/include/script/TemplateMatcher.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/script/include/script/Value.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/script/include/script/Value.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/script/src/Lexer.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/script/src/Lexer.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/script/src/Lexer.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/script/src/Lexer.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/script/src/Parser.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/script/src/Parser.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/script/src/Parser.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/script/src/Parser.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/script/src/Runtime.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/script/src/Runtime.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/script/src/TemplateMatcher.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/script/src/TemplateMatcher.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/script/src/Value.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/script/src/Value.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/script/tests/ScriptTests.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/script/tests/ScriptTests.cpp" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[LocalEmulator::path=D:\Tools\Android\.android\.android\avd\Medium_Phone.avd]" />
+  <component name="ExternalProjectsData">
+    <projectState path="$PROJECT_DIR$">
+      <ProjectState />
+    </projectState>
+  </component>
+  <component name="ExternalProjectsManager">
+    <system id="GRADLE">
+      <state>
+        <projects_view>
+          <tree_state>
+            <expand>
+              <path>
+                <item name="" type="6a2764b6:ExternalProjectsStructure$RootNode" />
+                <item name="android" type="f1a62948:ProjectNode" />
+              </path>
+            </expand>
+            <select />
+          </tree_state>
+        </projects_view>
+      </state>
+    </system>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../.." />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 0
+}</component>
+  <component name="ProjectId" id="3MdcKJKTJq6Y9OP9uCa1pIlx9EM" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "CidrDebugProfileConversion": "true",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "git-widget-placeholder": "main",
+    "kotlin-language-version-configured": "true",
+    "recommended.upgrade.last.time.stamp": "1795690782766",
+    "settings.editor.selected.configurable": "Errors"
+  }
+}]]></component>
+  <component name="RunManager" selected="Android App.main">
+    <configuration name="androidTest" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
+      <module name="android.app.androidTest" />
+      <option name="ANDROID_RUN_CONFIGURATION_SCHEMA_VERSION" value="1" />
+      <option name="DEPLOY" value="true" />
+      <option name="DEPLOY_APK_FROM_BUNDLE" value="false" />
+      <option name="DEPLOY_AS_INSTANT" value="false" />
+      <option name="ARTIFACT_NAME" value="" />
+      <option name="PM_INSTALL_OPTIONS" value="" />
+      <option name="ALL_USERS" value="false" />
+      <option name="ALWAYS_INSTALL_WITH_PM" value="false" />
+      <option name="ALLOW_ASSUME_VERIFIED" value="false" />
+      <option name="CLEAR_APP_STORAGE" value="false" />
+      <option name="DYNAMIC_FEATURES_DISABLED_LIST" value="" />
+      <option name="ACTIVITY_EXTRA_FLAGS" value="" />
+      <option name="MODE" value="default_activity" />
+      <option name="RESTORE_ENABLED" value="false" />
+      <option name="RESTORE_FILE" value="" />
+      <option name="RESTORE_FRESH_INSTALL_ONLY" value="false" />
+      <option name="CLEAR_LOGCAT" value="false" />
+      <option name="SHOW_LOGCAT_AUTOMATICALLY" value="false" />
+      <option name="TARGET_SELECTION_MODE" value="DEVICE_AND_SNAPSHOT_COMBO_BOX" />
+      <option name="DEBUGGER_TYPE" value="Auto" />
+      <Auto>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Auto>
+      <Hybrid>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Hybrid>
+      <Java>
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Java>
+      <Native>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Native>
+      <Profilers>
+        <option name="ADVANCED_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_CPU_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_CPU_PROFILING_CONFIGURATION_NAME" value="Java/Kotlin Method Trace" />
+        <option name="STARTUP_NATIVE_MEMORY_PROFILING_ENABLED" value="false" />
+        <option name="NATIVE_MEMORY_SAMPLE_RATE_BYTES" value="2048" />
+      </Profilers>
+      <option name="DEEP_LINK" value="" />
+      <option name="ACTIVITY" value="" />
+      <option name="ACTIVITY_CLASS" value="" />
+      <option name="SEARCH_ACTIVITY_IN_GLOBAL_SCOPE" value="false" />
+      <option name="SKIP_ACTIVITY_VALIDATION" value="false" />
+      <method v="2">
+        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="app" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
+      <module name="android.app" />
+      <option name="ANDROID_RUN_CONFIGURATION_SCHEMA_VERSION" value="1" />
+      <option name="DEPLOY" value="true" />
+      <option name="DEPLOY_APK_FROM_BUNDLE" value="false" />
+      <option name="DEPLOY_AS_INSTANT" value="false" />
+      <option name="ARTIFACT_NAME" value="" />
+      <option name="PM_INSTALL_OPTIONS" value="" />
+      <option name="ALL_USERS" value="false" />
+      <option name="ALWAYS_INSTALL_WITH_PM" value="false" />
+      <option name="ALLOW_ASSUME_VERIFIED" value="false" />
+      <option name="CLEAR_APP_STORAGE" value="false" />
+      <option name="DYNAMIC_FEATURES_DISABLED_LIST" value="" />
+      <option name="ACTIVITY_EXTRA_FLAGS" value="" />
+      <option name="MODE" value="default_activity" />
+      <option name="RESTORE_ENABLED" value="false" />
+      <option name="RESTORE_FILE" value="" />
+      <option name="RESTORE_FRESH_INSTALL_ONLY" value="false" />
+      <option name="CLEAR_LOGCAT" value="false" />
+      <option name="SHOW_LOGCAT_AUTOMATICALLY" value="false" />
+      <option name="TARGET_SELECTION_MODE" value="DEVICE_AND_SNAPSHOT_COMBO_BOX" />
+      <option name="DEBUGGER_TYPE" value="Auto" />
+      <Auto>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Auto>
+      <Hybrid>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Hybrid>
+      <Java>
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Java>
+      <Native>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Native>
+      <Profilers>
+        <option name="ADVANCED_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_CPU_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_CPU_PROFILING_CONFIGURATION_NAME" value="Java/Kotlin Method Trace" />
+        <option name="STARTUP_NATIVE_MEMORY_PROFILING_ENABLED" value="false" />
+        <option name="NATIVE_MEMORY_SAMPLE_RATE_BYTES" value="2048" />
+      </Profilers>
+      <option name="DEEP_LINK" value="" />
+      <option name="ACTIVITY" value="" />
+      <option name="ACTIVITY_CLASS" value="" />
+      <option name="SEARCH_ACTIVITY_IN_GLOBAL_SCOPE" value="false" />
+      <option name="SKIP_ACTIVITY_VALIDATION" value="false" />
+      <method v="2">
+        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="main" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
+      <module name="android.app.main" />
+      <option name="ANDROID_RUN_CONFIGURATION_SCHEMA_VERSION" value="1" />
+      <option name="DEPLOY" value="true" />
+      <option name="DEPLOY_APK_FROM_BUNDLE" value="false" />
+      <option name="DEPLOY_AS_INSTANT" value="false" />
+      <option name="ARTIFACT_NAME" value="" />
+      <option name="PM_INSTALL_OPTIONS" value="" />
+      <option name="ALL_USERS" value="false" />
+      <option name="ALWAYS_INSTALL_WITH_PM" value="false" />
+      <option name="ALLOW_ASSUME_VERIFIED" value="false" />
+      <option name="CLEAR_APP_STORAGE" value="false" />
+      <option name="DYNAMIC_FEATURES_DISABLED_LIST" value="" />
+      <option name="ACTIVITY_EXTRA_FLAGS" value="" />
+      <option name="MODE" value="default_activity" />
+      <option name="RESTORE_ENABLED" value="false" />
+      <option name="RESTORE_FILE" value="" />
+      <option name="RESTORE_FRESH_INSTALL_ONLY" value="false" />
+      <option name="CLEAR_LOGCAT" value="false" />
+      <option name="SHOW_LOGCAT_AUTOMATICALLY" value="false" />
+      <option name="TARGET_SELECTION_MODE" value="DEVICE_AND_SNAPSHOT_COMBO_BOX" />
+      <option name="DEBUGGER_TYPE" value="Auto" />
+      <Auto>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Auto>
+      <Hybrid>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Hybrid>
+      <Java>
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Java>
+      <Native>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Native>
+      <Profilers>
+        <option name="ADVANCED_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_CPU_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_CPU_PROFILING_CONFIGURATION_NAME" value="Java/Kotlin Method Trace" />
+        <option name="STARTUP_NATIVE_MEMORY_PROFILING_ENABLED" value="false" />
+        <option name="NATIVE_MEMORY_SAMPLE_RATE_BYTES" value="2048" />
+      </Profilers>
+      <option name="DEEP_LINK" value="" />
+      <option name="ACTIVITY" value="" />
+      <option name="ACTIVITY_CLASS" value="" />
+      <option name="SEARCH_ACTIVITY_IN_GLOBAL_SCOPE" value="false" />
+      <option name="SKIP_ACTIVITY_VALIDATION" value="false" />
+      <method v="2">
+        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="unitTest" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
+      <module name="android.app.unitTest" />
+      <option name="ANDROID_RUN_CONFIGURATION_SCHEMA_VERSION" value="1" />
+      <option name="DEPLOY" value="true" />
+      <option name="DEPLOY_APK_FROM_BUNDLE" value="false" />
+      <option name="DEPLOY_AS_INSTANT" value="false" />
+      <option name="ARTIFACT_NAME" value="" />
+      <option name="PM_INSTALL_OPTIONS" value="" />
+      <option name="ALL_USERS" value="false" />
+      <option name="ALWAYS_INSTALL_WITH_PM" value="false" />
+      <option name="ALLOW_ASSUME_VERIFIED" value="false" />
+      <option name="CLEAR_APP_STORAGE" value="false" />
+      <option name="DYNAMIC_FEATURES_DISABLED_LIST" value="" />
+      <option name="ACTIVITY_EXTRA_FLAGS" value="" />
+      <option name="MODE" value="default_activity" />
+      <option name="RESTORE_ENABLED" value="false" />
+      <option name="RESTORE_FILE" value="" />
+      <option name="RESTORE_FRESH_INSTALL_ONLY" value="false" />
+      <option name="CLEAR_LOGCAT" value="false" />
+      <option name="SHOW_LOGCAT_AUTOMATICALLY" value="false" />
+      <option name="TARGET_SELECTION_MODE" value="DEVICE_AND_SNAPSHOT_COMBO_BOX" />
+      <option name="DEBUGGER_TYPE" value="Auto" />
+      <Auto>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Auto>
+      <Hybrid>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Hybrid>
+      <Java>
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Java>
+      <Native>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Native>
+      <Profilers>
+        <option name="ADVANCED_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_CPU_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_CPU_PROFILING_CONFIGURATION_NAME" value="Java/Kotlin Method Trace" />
+        <option name="STARTUP_NATIVE_MEMORY_PROFILING_ENABLED" value="false" />
+        <option name="NATIVE_MEMORY_SAMPLE_RATE_BYTES" value="2048" />
+      </Profilers>
+      <option name="DEEP_LINK" value="" />
+      <option name="ACTIVITY" value="" />
+      <option name="ACTIVITY_CLASS" value="" />
+      <option name="SEARCH_ACTIVITY_IN_GLOBAL_SCOPE" value="false" />
+      <option name="SKIP_ACTIVITY_VALIDATION" value="false" />
+      <method v="2">
+        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="7dd309f2-e862-420c-abf6-1803e4d0c772" name="Changes" comment="" />
+      <created>1795683822913</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1795683822913</updated>
+    </task>
+    <servers />
+  </component>
+</project>

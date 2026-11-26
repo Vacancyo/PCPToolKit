@@ -1,3 +1,23 @@
+/**
+ * PCP ToolKit
+ * Copyright (C) 2026 VacancyoTP
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ *
+ * @file Decoder.cpp
+ * @brief RTON 二进制解码实现。
+ *
+ * 该代码文件实现 RTON 类型标记解析、二进制值读取、对象和数组递归解码，以及最终 RTON 字节流验证。
+ */
 #include "rton/Decoder.h"
 
 #include <cstdio>
@@ -9,11 +29,13 @@
 
 using std::string;
 
-namespace rton {
+namespace pcp::rton {
 
 namespace {
 
-/** @brief  把类型字节格式化为 0xNN，用于错误信息。 */
+/**
+ * @brief 把类型字节格式化为 0xNN，用于错误信息。
+ */
 std::string hexByte(std::uint8_t t) {
     char buf[8];
     std::snprintf(buf, sizeof buf, "0x%02X", t);
@@ -127,11 +149,11 @@ Value Decoder::readArray() {
 }
 
 Value Decoder::decode() {
-    if (r_.bytes(4) != kMagic) throw std::runtime_error(i18n::translate("decoder.bad_magic"));
-    if (r_.u32() != kVersion) throw std::runtime_error(i18n::translate("decoder.bad_version"));
+    if (r_.bytes(4) != kMagic) throw std::runtime_error(pcp::i18n::translate("decoder.bad_magic"));
+    if (r_.u32() != kVersion) throw std::runtime_error(pcp::i18n::translate("decoder.bad_version"));
     Value root = readObject();
-    if (r_.bytes(4) != kEofTag) throw std::runtime_error(i18n::translate("decoder.missing_done"));
+    if (r_.bytes(4) != kEofTag) throw std::runtime_error(pcp::i18n::translate("decoder.missing_done"));
     return root;
 }
 
-}  // namespace rton
+}  // namespace pcp::rton

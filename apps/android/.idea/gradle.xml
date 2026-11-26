@@ -5,6 +5,7 @@
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
         <option name="testRunner" value="CHOOSE_PER_TEST" />
+        <option name="distributionType" value="LOCAL" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="modules">
           <set>
@@ -12,6 +13,7 @@
             <option value="$PROJECT_DIR$/app" />
           </set>
         </option>
+        <option name="myGradleHome" value="D:\Tools\Android\.gradle\wrapper\dists\gradle-9.6.0-bin\3yr5qo1p853jn7m5o1j0u2qkd\gradle-9.6.0" />
       </GradleProjectSettings>
     </option>
   </component>

@@ -8,7 +8,6 @@ add_library(rton_core STATIC
   src/Rijndael.cpp
   src/Crypto.cpp
   src/Converter.cpp
-  src/RtonConverter.cpp
 )
 target_include_directories(rton_core PUBLIC include)
 target_link_libraries(rton_core PUBLIC common)   # 依赖公共库

@@ -1,3 +1,23 @@
+/**
+ * PCP ToolKit
+ * Copyright (C) 2026 VacancyoTP
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ *
+ * @file Lexer.cpp
+ * @brief 脚本词法分析实现。
+ *
+ * 该代码文件实现缩进识别、注释跳过、数字和字符串扫描、图像路径扫描以及运算符切分。
+ */
 #include "Lexer.h"
 
 #include "script/Error.h"
@@ -8,18 +28,38 @@
 namespace pcp::script {
 namespace {
 
+/**
+ * @brief 判断字符是否为十进制数字。
+ * @param c 待判断字符。
+ * @return 是数字返回 true。
+ */
 bool isDigit(char c) {
     return c >= '0' && c <= '9';
 }
 
+/**
+ * @brief 判断字符是否可以开始标识符。
+ * @param c 待判断字符。
+ * @return 可以开始标识符返回 true。
+ */
 bool isIdentifierStart(char c) {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
+/**
+ * @brief 判断字符是否可以作为标识符后续字符。
+ * @param c 待判断字符。
+ * @return 可以作为后续字符返回 true。
+ */
 bool isIdentifierPart(char c) {
     return isIdentifierStart(c) || isDigit(c);
 }
 
+/**
+ * @brief 判断字符是否可以出现在图像对象名中。
+ * @param c 待判断字符。
+ * @return 可以出现返回 true。
+ */
 bool isImagePart(char c) {
     return isIdentifierPart(c);
 }

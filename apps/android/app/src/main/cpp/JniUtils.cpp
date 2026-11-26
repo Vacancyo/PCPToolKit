@@ -1,3 +1,23 @@
+/**
+ * PCP ToolKit
+ * Copyright (C) 2026 VacancyoTP
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ *
+ * @file JniUtils.cpp
+ * @brief JNI 字符串与数组转换实现。
+ *
+ * 该代码文件实现代理项处理、标准 UTF-8 编解码以及 Java 字符串数组复制。
+ */
 #include "JniUtils.h"
 
 namespace jni {

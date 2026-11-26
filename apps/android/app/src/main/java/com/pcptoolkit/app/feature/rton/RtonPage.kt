@@ -1,3 +1,23 @@
+/**
+ * PCP ToolKit
+ * Copyright (C) 2026 VacancyoTP
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ *
+ * @file RtonPage.kt
+ * @brief RTON 转换界面。
+ *
+ * 该代码文件实现输入来源、转换模式、输出目录、进度和结果列表等转换交互界面。
+ */
 package com.pcptoolkit.app.feature.rton
 
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -49,6 +69,11 @@ import com.pcptoolkit.app.t
 
 private val SuccessColor = Color(0xFF177245)
 
+/**
+ * @brief 把转换阶段映射为翻译键。
+ * @param stage 转换阶段。
+ * @return 对应的翻译键。
+ */
 private fun stageKey(stage: Stage): String = when (stage) {
     Stage.IDLE -> ""
     Stage.COPYING -> "app.copying"
@@ -58,6 +83,10 @@ private fun stageKey(stage: Stage): String = when (stage) {
     Stage.CANCELLED -> "app.cancelled"
 }
 
+/**
+ * @brief 显示 RTON 转换主页面。
+ * @param vm RTON 转换状态管理对象。
+ */
 @Composable
 internal fun RtonPage(vm: ConvertViewModel) {
     val pickFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -236,6 +265,10 @@ internal fun RtonPage(vm: ConvertViewModel) {
     }
 }
 
+/**
+ * @brief 显示输入来源选择控件。
+ * @param vm RTON 转换状态管理对象。
+ */
 @Composable
 private fun SourceSelector(vm: ConvertViewModel) {
     Row(
@@ -263,6 +296,12 @@ private fun SourceSelector(vm: ConvertViewModel) {
     }
 }
 
+/**
+ * @brief 显示单个输入来源标签。
+ * @param label 标签文本。
+ * @param selected 是否选中。
+ * @param onClick 点击回调。
+ */
 @Composable
 private fun SourceTab(
     text: String,
@@ -289,6 +328,11 @@ private fun SourceTab(
     )
 }
 
+/**
+ * @brief 显示文件输入选择区域。
+ * @param vm RTON 转换状态管理对象。
+ * @param onPick 选择文件回调。
+ */
 @Composable
 private fun FileInput(vm: ConvertViewModel, onPick: () -> Unit) {
     if (vm.files.isEmpty()) {
@@ -329,6 +373,11 @@ private fun FileInput(vm: ConvertViewModel, onPick: () -> Unit) {
     }
 }
 
+/**
+ * @brief 显示一个待转换文件。
+ * @param file 文件信息。
+ * @param onRemove 移除回调。
+ */
 @Composable
 private fun FileRow(file: PickedFile, onRemove: () -> Unit) {
     Surface(
@@ -361,6 +410,11 @@ private fun FileRow(file: PickedFile, onRemove: () -> Unit) {
     }
 }
 
+/**
+ * @brief 显示目录输入选择区域。
+ * @param vm RTON 转换状态管理对象。
+ * @param onPick 选择目录回调。
+ */
 @Composable
 private fun DirectoryInput(vm: ConvertViewModel, onPick: () -> Unit) {
     if (vm.inputTree == null) {
@@ -447,6 +501,12 @@ private fun DirectoryInput(vm: ConvertViewModel, onPick: () -> Unit) {
     }
 }
 
+/**
+ * @brief 显示空输入占位区域。
+ * @param title 占位标题。
+ * @param hint 操作提示。
+ * @param onClick 点击回调。
+ */
 @Composable
 private fun EmptyPicker(
     title: String,
@@ -500,6 +560,13 @@ private fun EmptyPicker(
     }
 }
 
+/**
+ * @brief 显示一种转换模式选项。
+ * @param title 模式标题。
+ * @param description 模式说明。
+ * @param selected 是否选中。
+ * @param onClick 点击回调。
+ */
 @Composable
 private fun ModeOption(
     title: String,
@@ -530,6 +597,11 @@ private fun ModeOption(
     }
 }
 
+/**
+ * @brief 显示输出目录选择行。
+ * @param label 目录摘要。
+ * @param onPick 选择目录回调。
+ */
 @Composable
 private fun OutputFolderRow(
     label: String,
@@ -569,6 +641,10 @@ private fun OutputFolderRow(
     }
 }
 
+/**
+ * @brief 显示一条转换结果。
+ * @param result 转换结果。
+ */
 @Composable
 private fun ResultRow(result: ResultLine) {
     val color = if (result.ok) SuccessColor else MaterialTheme.colorScheme.error
@@ -604,6 +680,11 @@ private fun ResultRow(result: ResultLine) {
     }
 }
 
+/**
+ * @brief 显示带标题的转换信息卡片。
+ * @param title 卡片标题。
+ * @param content 卡片内容。
+ */
 @Composable
 private fun RtonCard(
     title: String,
@@ -630,6 +711,10 @@ private fun RtonCard(
     }
 }
 
+/**
+ * @brief 显示文件扩展名标签。
+ * @param name 文件名。
+ */
 @Composable
 private fun FileBadge(name: String) {
     val extension = name.substringAfterLast('.', "")
@@ -652,6 +737,11 @@ private fun FileBadge(name: String) {
     }
 }
 
+/**
+ * @brief 显示输入数量标签。
+ * @param count 数量。
+ * @param label 数量说明。
+ */
 @Composable
 private fun CountBadge(
     text: String,
@@ -669,6 +759,11 @@ private fun CountBadge(
     )
 }
 
+/**
+ * @brief 统计当前输入数量。
+ * @param vm RTON 转换状态管理对象。
+ * @return 输入数量。
+ */
 private fun inputCount(vm: ConvertViewModel): Int = when (vm.inputSource) {
     InputSource.FILES -> vm.files.size
     InputSource.DIRECTORY -> vm.directoryFiles.size

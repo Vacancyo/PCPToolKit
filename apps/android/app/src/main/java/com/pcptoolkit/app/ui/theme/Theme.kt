@@ -1,3 +1,23 @@
+/**
+ * PCP ToolKit
+ * Copyright (C) 2026 VacancyoTP
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ *
+ * @file Theme.kt
+ * @brief 应用主题配置。
+ *
+ * 该代码文件定义浅色、深色和基于壁纸的动态配色主题。
+ */
 package com.pcptoolkit.app.ui.theme
 
 import android.app.Activity
@@ -33,6 +53,12 @@ private val LightColorScheme = lightColorScheme(
     */
 )
 
+/**
+ * @brief 应用浅色、深色或动态配色主题。
+ * @param darkTheme 是否使用深色主题。
+ * @param dynamicColor 是否使用系统动态配色。
+ * @param content 主题内部界面内容。
+ */
 @Composable
 fun AndroidTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

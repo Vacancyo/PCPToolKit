@@ -1,3 +1,23 @@
+/**
+ * PCP ToolKit
+ * Copyright (C) 2026 VacancyoTP
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ *
+ * @file Crypto.cpp
+ * @brief RTON 加密与解密实现。
+ *
+ * 该代码文件实现 RTON 加密文件头识别、基于 RTONKey 的密钥生成、CBC 风格分组加密和解密流程。
+ */
 #include "rton/Crypto.h"
 
 #include <cstring>
@@ -7,15 +27,17 @@
 #include "rton/Rijndael.h"
 #include "common/I18n.h"
 
-namespace rton {
+namespace pcp::rton {
 
-using common::Bytes;
+using pcp::common::Bytes;
 
 namespace {
 
-constexpr int kBlock = 24;  ///< 分组字节数(192 位)
+constexpr int kBlock = 24;  ///< 分组字节数（192 位）
 
-/** @brief  由 RTONKey 构造 Rijndael 对象，并输出 24 字节 IV。 */
+/**
+ * @brief 由 RTONKey 构造 Rijndael 对象，并输出 24 字节 IV。
+ */
 Rijndael makeCipher(const std::string& rtonKey, std::uint8_t iv[kBlock]) {
     std::string k = md5Hex(rtonKey);  // 32 个十六进制字符，其字节即为密钥
     std::memcpy(iv, k.data() + 4, kBlock);
@@ -43,9 +65,9 @@ Bytes rtonEncrypt(const Bytes& plain, const std::string& key) {
 }
 
 Bytes rtonDecrypt(const Bytes& file, const std::string& key) {
-    if (file.size() < 2) throw std::runtime_error(i18n::translate("crypto.too_short"));
+    if (file.size() < 2) throw std::runtime_error(pcp::i18n::translate("crypto.too_short"));
     size_t n = file.size() - 2;
-    if (n % kBlock) throw std::runtime_error(i18n::translate("crypto.bad_length"));
+    if (n % kBlock) throw std::runtime_error(pcp::i18n::translate("crypto.bad_length"));
     std::uint8_t prev[kBlock];
     Rijndael c = makeCipher(key, prev);
     Bytes out; out.reserve(n);
@@ -60,4 +82,4 @@ Bytes rtonDecrypt(const Bytes& file, const std::string& key) {
     return out;
 }
 
-}  // namespace rton
+}  // namespace pcp::rton

@@ -1,26 +1,58 @@
+/**
+ * PCP ToolKit
+ * Copyright (C) 2026 VacancyoTP
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ *
+ * @file I18n.cpp
+ * @brief 多语言文本支持实现。
+ *
+ * 该代码文件实现扁平 JSON 语言表解析、语言注册、语言切换以及带占位符的翻译文本格式化。
+ */
 #include "common/I18n.h"
 
 #include <cstdint>
 #include <map>
 #include <unordered_map>
 
-namespace i18n {
+namespace pcp::i18n {
 namespace {
 
 using Table = std::unordered_map<std::string, std::string>;
 
-/** @brief  已注册的全部语言。语言代码到文本表的映射。 */
+/**
+ * @brief 已注册的全部语言。语言代码到文本表的映射。
+ */
 std::map<std::string, Table>& registry() { static std::map<std::string, Table> r; return r; }
 
-/** @brief  当前语言代码。 */
+/**
+ * @brief 当前语言代码。
+ */
 std::string& current() { static std::string s = kDefaultLang; return s; }
 
-/** @brief  仅支持字符串键对应字符串值的扁平 JSON 解析器。 */
+/**
+ * @brief 仅支持字符串键对应字符串值的扁平 JSON 解析器。
+ */
 class FlatJson {
 public:
+    /**
+     * @brief 构造扁平 JSON 解析器。
+     * @param text 待解析文本。
+     */
     explicit FlatJson(const std::string& text) : s_(text) {}
 
-    /** @brief  解析整个文本到 out。格式不合法返回 false。 */
+    /**
+     * @brief 解析整个文本到 out。格式不合法返回 false。
+     */
     bool parse(Table& out) {
         if (s_.size() >= 3 && static_cast<std::uint8_t>(s_[0]) == 0xEF &&
             static_cast<std::uint8_t>(s_[1]) == 0xBB && static_cast<std::uint8_t>(s_[2]) == 0xBF) p_ = 3;  // 跳过 BOM
@@ -45,10 +77,21 @@ private:
     const std::string& s_;  ///< 待解析文本
     size_t p_ = 0;          ///< 当前位置
 
+    /**
+     * @brief 跳过空白字符。
+     */
     void ws() { while (p_ < s_.size() && (s_[p_] == ' ' || s_[p_] == '\t' || s_[p_] == '\n' || s_[p_] == '\r')) p_++; }
+
+    /**
+     * @brief 尝试消费一个指定字符。
+     * @param c 期望字符。
+     * @return 消费成功返回 true。
+     */
     bool eat(char c) { if (p_ < s_.size() && s_[p_] == c) { p_++; return true; } return false; }
 
-    /** @brief  解析一个 JSON 字符串到 out。 */
+    /**
+     * @brief 解析一个 JSON 字符串到 out。
+     */
     bool str(std::string& out) {
         if (!eat('"')) return false;
         while (p_ < s_.size()) {
@@ -67,7 +110,9 @@ private:
     }
 };
 
-/** @brief  把模板中的 {N} 替换为 args[N]；N 越界或格式不对则原样保留。 */
+/**
+ * @brief 把模板中的 {N} 替换为 args[N]；N 越界或格式不对则原样保留。
+ */
 std::string format(const std::string& tpl, const Args& args) {
     std::string o;
     o.reserve(tpl.size() + 16);
@@ -82,7 +127,9 @@ std::string format(const std::string& tpl, const Args& args) {
     return o;
 }
 
-/** @brief  在指定语言中查找键；语言未注册或没有该键返回 nullptr。 */
+/**
+ * @brief 在指定语言中查找键；语言未注册或没有该键返回 nullptr。
+ */
 const std::string* find(const std::string& lang, const std::string& key) {
     auto l = registry().find(lang);
     if (l == registry().end()) return nullptr;
@@ -112,4 +159,4 @@ std::string translate(const std::string& key, const Args& args) {
     return format(*text, args);
 }
 
-}  // namespace i18n
+}  // namespace pcp::i18n

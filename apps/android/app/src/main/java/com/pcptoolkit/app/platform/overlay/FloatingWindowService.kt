@@ -1,3 +1,23 @@
+/**
+ * PCP ToolKit
+ * Copyright (C) 2026 VacancyoTP
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ *
+ * @file FloatingWindowService.kt
+ * @brief 悬浮窗控制服务。
+ *
+ * 该代码文件实现悬浮球、控制面板、日志窗口、脚本运行、屏幕捕获和通知管理等交互。
+ */
 package com.pcptoolkit.app.platform.overlay
 
 import android.app.NotificationChannel
@@ -49,6 +69,9 @@ import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+/**
+ * @brief 承载悬浮球、控制面板、日志窗口和脚本运行的悬浮窗服务。
+ */
 class FloatingWindowService : Service() {
     private lateinit var windowManager: WindowManager
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -87,6 +110,9 @@ class FloatingWindowService : Service() {
     @Volatile
     private var running = false
 
+    /**
+     * @brief 初始化悬浮窗服务、通知和界面资源。
+     */
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
@@ -99,6 +125,13 @@ class FloatingWindowService : Service() {
         addBubble()
     }
 
+    /**
+     * @brief 处理悬浮窗服务启动命令。
+     * @param intent 启动参数。
+     * @param flags 启动标志。
+     * @param startId 启动标识。
+     * @return 服务粘性模式。
+     */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP_SCRIPT -> requestStop()
@@ -110,6 +143,10 @@ class FloatingWindowService : Service() {
         return START_STICKY
     }
 
+    /**
+     * @brief 处理屏幕方向或配置变化。
+     * @param newConfig 新的设备配置。
+     */
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         bubbleRestore?.let { mainHandler.removeCallbacks(it) }
@@ -135,8 +172,16 @@ class FloatingWindowService : Service() {
         }
     }
 
+    /**
+     * @brief 声明悬浮窗服务不支持绑定。
+     * @param intent 绑定请求。
+     * @return 始终返回空。
+     */
     override fun onBind(intent: Intent?): IBinder? = null
 
+    /**
+     * @brief 释放悬浮窗、日志窗口和脚本运行资源。
+     */
     override fun onDestroy() {
         cancelRequested = true
         scriptThread?.interrupt()
@@ -149,6 +194,9 @@ class FloatingWindowService : Service() {
         super.onDestroy()
     }
 
+    /**
+     * @brief 创建并显示可拖动悬浮球。
+     */
     private fun addBubble() {
         if (bubble != null) return
         val size = dp(56)
@@ -186,6 +234,11 @@ class FloatingWindowService : Service() {
         }.onFailure { stopSelf() }
     }
 
+    /**
+     * @brief 为悬浮球添加拖动和点击行为。
+     * @param view 悬浮球视图。
+     * @param params 窗口布局参数。
+     */
     private fun attachDrag(view: View, params: WindowManager.LayoutParams) {
         var downRawX = 0f
         var downRawY = 0f
@@ -220,6 +273,11 @@ class FloatingWindowService : Service() {
         }
     }
 
+    /**
+     * @brief 为日志窗口添加拖动行为。
+     * @param view 日志窗口视图。
+     * @param params 窗口布局参数。
+     */
     private fun attachLogDrag(
         handle: View,
         root: View,
@@ -253,6 +311,9 @@ class FloatingWindowService : Service() {
         }
     }
 
+    /**
+     * @brief 切换控制面板显示状态。
+     */
     private fun togglePanel() {
         if (panel != null) {
             removePanel()
@@ -261,6 +322,9 @@ class FloatingWindowService : Service() {
         }
     }
 
+    /**
+     * @brief 创建并显示脚本控制面板。
+     */
     private fun showPanel() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -417,6 +481,9 @@ class FloatingWindowService : Service() {
         }
     }
 
+    /**
+     * @brief 移除脚本控制面板。
+     */
     private fun removePanel() {
         panel?.let { runCatching { windowManager.removeView(it) } }
         panel = null
@@ -427,10 +494,16 @@ class FloatingWindowService : Service() {
         logButton = null
     }
 
+    /**
+     * @brief 切换日志窗口显示状态。
+     */
     private fun toggleLogConsole() {
         if (logConsole == null) showLogConsole() else removeLogConsole()
     }
 
+    /**
+     * @brief 创建并显示日志窗口。
+     */
     private fun showLogConsole() {
         if (logConsole != null) {
             updateLogButton()
@@ -526,6 +599,9 @@ class FloatingWindowService : Service() {
         }
     }
 
+    /**
+     * @brief 移除日志窗口。
+     */
     private fun removeLogConsole() {
         logConsole?.let { runCatching { windowManager.removeView(it) } }
         logConsole = null
@@ -534,10 +610,17 @@ class FloatingWindowService : Service() {
         updateLogButton()
     }
 
+    /**
+     * @brief 更新控制面板中的日志按钮状态。
+     */
     private fun updateLogButton() {
         logButton?.text = if (logConsole == null) "打开日志" else "关闭日志"
     }
 
+    /**
+     * @brief 向日志窗口追加一行文本。
+     * @param message 日志文本。
+     */
     private fun appendLog(message: String) {
         val line = message.take(500)
         mainHandler.post {
@@ -551,6 +634,9 @@ class FloatingWindowService : Service() {
         }
     }
 
+    /**
+     * @brief 重新扫描脚本目录并刷新脚本列表。
+     */
     private fun refreshScripts() {
         val group = scriptGroup ?: return
         val previous = selectedScript?.name
@@ -604,6 +690,9 @@ class FloatingWindowService : Service() {
         }
     }
 
+    /**
+     * @brief 在后台线程启动当前选中的脚本。
+     */
     private fun startScript() {
         if (running) return
         val script = selectedScript
@@ -663,6 +752,9 @@ class FloatingWindowService : Service() {
         }, "pcp-script").also { it.start() }
     }
 
+    /**
+     * @brief 请求停止正在运行的脚本。
+     */
     private fun requestStop() {
         if (!running) return
         cancelRequested = true
@@ -670,6 +762,10 @@ class FloatingWindowService : Service() {
         scriptThread?.interrupt()
     }
 
+    /**
+     * @brief 把脚本状态更新投递到主线程。
+     * @param message 状态文本。
+     */
     private fun postStatus(message: String) {
         appendLog(message)
         mainHandler.post {
@@ -677,6 +773,9 @@ class FloatingWindowService : Service() {
         }
     }
 
+    /**
+     * @brief 打开系统无障碍服务设置页面。
+     */
     private fun openAccessibilitySettings() {
         runCatching {
             startActivity(
@@ -687,6 +786,12 @@ class FloatingWindowService : Service() {
         }
     }
 
+    /**
+     * @brief 按当前屏幕方向截取游戏区域。
+     * @param width 目标宽度。
+     * @param height 目标高度。
+     * @return 截图位图，失败时返回空。
+     */
     private fun captureGameScreen(
         left: Int,
         top: Int,
@@ -732,6 +837,9 @@ class FloatingWindowService : Service() {
         }
     }
 
+    /**
+     * @brief 在配置变化后安排悬浮球位置恢复。
+     */
     private fun scheduleBubbleRestore() {
         bubbleRestore?.let { mainHandler.removeCallbacks(it) }
         val restore = Runnable {
@@ -742,6 +850,9 @@ class FloatingWindowService : Service() {
         mainHandler.postDelayed(restore, 1_000L)
     }
 
+    /**
+     * @brief 在配置变化后安排日志窗口位置恢复。
+     */
     private fun scheduleLogRestore() {
         logRestore?.let { mainHandler.removeCallbacks(it) }
         val restore = Runnable {
@@ -758,12 +869,24 @@ class FloatingWindowService : Service() {
         override val isCancelled: Boolean
             get() = cancelRequested
 
+        /**
+         * @brief 获取系统开机后的单调毫秒时间。
+         * @return 单调毫秒时间。
+         */
         override fun nowMillis(): Long = SystemClock.elapsedRealtime()
 
+        /**
+         * @brief 把脚本日志追加到悬浮窗日志窗口。
+         * @param message 日志文本。
+         */
         override fun log(message: String) {
             postStatus(message)
         }
 
+        /**
+         * @brief 让脚本线程休眠并响应停止请求。
+         * @param milliseconds 休眠毫秒数。
+         */
         override fun sleep(milliseconds: Long) {
             if (milliseconds <= 0) return
             try {
@@ -773,6 +896,11 @@ class FloatingWindowService : Service() {
             }
         }
 
+        /**
+         * @brief 执行脚本请求的单击。
+         * @param x 归一化横坐标。
+         * @param y 归一化纵坐标。
+         */
         override fun tap(x: Double, y: Double) {
             val service = AutomationAccessibilityService.instance
                 ?: throw IllegalStateException("无障碍服务未连接")
@@ -786,6 +914,14 @@ class FloatingWindowService : Service() {
             }
         }
 
+        /**
+         * @brief 执行脚本请求的滑动。
+         * @param x1 起点横坐标。
+         * @param y1 起点纵坐标。
+         * @param x2 终点横坐标。
+         * @param y2 终点纵坐标。
+         * @param durationMillis 滑动持续时间，单位为毫秒。
+         */
         override fun swipe(
             x1: Double,
             y1: Double,
@@ -808,6 +944,15 @@ class FloatingWindowService : Service() {
             }
         }
 
+        /**
+         * @brief 执行脚本请求的模板匹配。
+         * @param assetPath 模板图像资源路径。
+         * @param left 区域左侧坐标。
+         * @param top 区域顶部坐标。
+         * @param right 区域右侧坐标。
+         * @param bottom 区域底部坐标。
+         * @return 模板匹配结果。
+         */
         override fun match(
             imageAssetPath: String,
             left: Double,
@@ -921,8 +1066,16 @@ class FloatingWindowService : Service() {
         }
     }
 
+    /**
+     * @brief 缓存模板位图及其像素数组。
+     */
     private data class CachedTemplate(val bitmap: Bitmap, val pixels: IntArray)
 
+    /**
+     * @brief 读取并缓存模板图像。
+     * @param path 模板图像资源路径。
+     * @return 缓存的模板，读取失败时返回空。
+     */
     private fun templateFor(path: String): CachedTemplate? {
         val cached = templateCache[path]
         val pixels = templatePixels[path]
@@ -945,6 +1098,10 @@ class FloatingWindowService : Service() {
         return CachedTemplate(bitmap, data)
     }
 
+    /**
+     * @brief 获取当前显示尺寸。
+     * @return 显示宽度和高度。
+     */
     private fun screenSize(): Pair<Int, Int> {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val bounds = windowManager.currentWindowMetrics.bounds
@@ -954,12 +1111,20 @@ class FloatingWindowService : Service() {
         return metrics.widthPixels to metrics.heightPixels
     }
 
+    /**
+     * @brief 判断当前是否为横屏。
+     * @return 横屏返回 true。
+     */
     private fun isLandscape(): Boolean {
         val (width, height) = screenSize()
         return width > height ||
             resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     }
 
+    /**
+     * @brief 获取用于视觉匹配的游戏画面尺寸。
+     * @return 游戏画面宽度和高度。
+     */
     private fun gameSize(): Pair<Int, Int> {
         val current = screenSize()
         val cachedWidth = gameWidth
@@ -972,6 +1137,10 @@ class FloatingWindowService : Service() {
         return current
     }
 
+    /**
+     * @brief 获取当前系统版本对应的悬浮窗类型。
+     * @return 窗口类型。
+     */
     private fun overlayType(): Int =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -980,6 +1149,9 @@ class FloatingWindowService : Service() {
             WindowManager.LayoutParams.TYPE_PHONE
         }
 
+    /**
+     * @brief 创建悬浮窗前台服务通知频道。
+     */
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(NotificationManager::class.java)
@@ -992,6 +1164,11 @@ class FloatingWindowService : Service() {
         )
     }
 
+    /**
+     * @brief 创建悬浮窗前台服务通知。
+     * @param running 脚本是否正在运行。
+     * @return 通知构建器。
+     */
     private fun notification(running: Boolean) = NotificationCompat.Builder(this, CHANNEL_ID)
         .setSmallIcon(R.mipmap.ic_launcher)
         .setContentTitle(getString(R.string.floating_notification_title))
@@ -1029,24 +1206,48 @@ class FloatingWindowService : Service() {
         )
         .build()
 
+    /**
+     * @brief 更新前台服务通知状态。
+     * @param running 脚本是否正在运行。
+     */
     private fun updateNotification(running: Boolean) {
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIFICATION_ID, notification(running))
     }
 
+    /**
+     * @brief 把 dp 数值转换为像素。
+     * @param value dp 数值。
+     * @return 像素数值。
+     */
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).roundToInt()
 
+    /**
+     * @brief 创建圆角纯色背景。
+     * @param color 背景颜色。
+     * @param radiusDp 圆角半径，单位为 dp。
+     * @return 圆角背景绘制对象。
+     */
     private fun rounded(color: Int, radiusDp: Int) = GradientDrawable().apply {
         shape = GradientDrawable.RECTANGLE
         setColor(color)
         cornerRadius = dp(radiusDp).toFloat()
     }
 
+    /**
+     * @brief 限制最大高度的脚本列表滚动视图。
+     */
     private class MaxHeightScrollView(
         context: Context,
         private val maxHeight: Int
     ) : ScrollView(context) {
+
+        /**
+         * @brief 测量可拖动视图并保持期望尺寸。
+         * @param widthMeasureSpec 宽度测量规格。
+         * @param heightMeasureSpec 高度测量规格。
+         */
         override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
             val mode = View.MeasureSpec.getMode(heightMeasureSpec)
             val size = View.MeasureSpec.getSize(heightMeasureSpec)
@@ -1074,6 +1275,10 @@ class FloatingWindowService : Service() {
         private const val ACTION_STOP_SCRIPT = "com.pcptoolkit.app.STOP_SCRIPT"
         private const val ACTION_CLOSE = "com.pcptoolkit.app.CLOSE_FLOATING"
 
+        /**
+         * @brief 启动悬浮窗前台服务。
+         * @param context 用于启动服务的上下文。
+         */
         fun start(context: Context) {
             ContextCompat.startForegroundService(
                 context,

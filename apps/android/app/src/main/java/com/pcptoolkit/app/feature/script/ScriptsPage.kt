@@ -1,3 +1,23 @@
+/**
+ * PCP ToolKit
+ * Copyright (C) 2026 VacancyoTP
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ *
+ * @file ScriptsPage.kt
+ * @brief 脚本管理界面。
+ *
+ * 该代码文件实现脚本目录授权、脚本列表、导入、预设添加和删除等管理操作。
+ */
 package com.pcptoolkit.app.feature.script
 
 import android.content.Context
@@ -50,6 +70,9 @@ import com.pcptoolkit.app.t
 private const val PRESET_DIR = "scripts"
 private const val SCRIPT_MIME = "application/octet-stream"
 
+/**
+ * @brief 显示脚本管理页面。
+ */
 @Composable
 internal fun ScriptsPage() {
     val context = LocalContext.current
@@ -62,6 +85,10 @@ internal fun ScriptsPage() {
     var folderError by remember { mutableStateOf(false) }
     val presets = remember { context.assets.list(PRESET_DIR)?.toList()?.sorted() ?: emptyList() }
 
+    /**
+     * @brief 刷新脚本目录和脚本列表。
+     * @param tree 目录树 URI。
+     */
     fun refresh(tree: Uri?) {
         if (tree == null) {
             scripts = emptyList()
@@ -217,6 +244,11 @@ internal fun ScriptsPage() {
     }
 }
 
+/**
+ * @brief 显示脚本管理卡片。
+ * @param title 卡片标题。
+ * @param content 卡片内容。
+ */
 @Composable
 private fun ScriptsCard(
     title: String,
@@ -238,6 +270,11 @@ private fun ScriptsCard(
     }
 }
 
+/**
+ * @brief 显示一个脚本条目。
+ * @param name 脚本名称。
+ * @param onDelete 删除回调。
+ */
 @Composable
 private fun ScriptRow(name: String, onDelete: () -> Unit) {
     Surface(
@@ -270,6 +307,12 @@ private fun ScriptRow(name: String, onDelete: () -> Unit) {
     }
 }
 
+/**
+ * @brief 显示一个内置脚本预设。
+ * @param name 预设名称。
+ * @param enabled 是否可用。
+ * @param onAdd 添加回调。
+ */
 @Composable
 private fun PresetRow(name: String, enabled: Boolean, onAdd: () -> Unit) {
     Surface(
@@ -301,6 +344,10 @@ private fun PresetRow(name: String, enabled: Boolean, onAdd: () -> Unit) {
     }
 }
 
+/**
+ * @brief 显示脚本扩展名标签。
+ * @param name 脚本名称。
+ */
 @Composable
 private fun ExtBadge(name: String) {
     val extension = name.substringAfterLast('.', "").uppercase().ifEmpty { "PCS" }.take(4)
@@ -320,6 +367,12 @@ private fun ExtBadge(name: String) {
     }
 }
 
+/**
+ * @brief 尝试长期保留脚本目录访问权限。
+ * @param context 应用上下文。
+ * @param tree 目录树 URI。
+ * @return 取得权限返回 true。
+ */
 private fun takeScriptFolderPermission(context: Context, tree: Uri): Boolean =
     runCatching {
         context.contentResolver.takePersistableUriPermission(
@@ -329,6 +382,13 @@ private fun takeScriptFolderPermission(context: Context, tree: Uri): Boolean =
         true
     }.getOrDefault(false)
 
+/**
+ * @brief 把用户选择的文件导入脚本目录。
+ * @param context 应用上下文。
+ * @param tree 脚本目录 URI。
+ * @param uri 待导入文件 URI。
+ * @return 导入成功返回 true。
+ */
 private fun importScript(
     context: Context,
     tree: Uri,
@@ -359,6 +419,13 @@ private fun importScript(
     }.getOrDefault(false)
 }
 
+/**
+ * @brief 把内置脚本写入脚本目录。
+ * @param context 应用上下文。
+ * @param tree 脚本目录 URI。
+ * @param preset 内置脚本内容。
+ * @return 添加成功返回 true。
+ */
 private fun addPreset(
     context: Context,
     tree: Uri,
@@ -386,10 +453,22 @@ private fun addPreset(
     }.getOrDefault(false)
 }
 
+/**
+ * @brief 删除一个脚本文件。
+ * @param context 应用上下文。
+ * @param uri 脚本文件 URI。
+ * @return 删除成功返回 true。
+ */
 private fun deleteScript(context: Context, uri: Uri): Boolean =
     runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }
         .getOrDefault(false)
 
+/**
+ * @brief 查询文件 URI 的显示名称。
+ * @param context 应用上下文。
+ * @param uri 文件 URI。
+ * @return 显示名称，查询失败时返回空。
+ */
 private fun queryDisplayName(context: Context, uri: Uri): String? =
     context.contentResolver.query(
         uri,
@@ -399,6 +478,12 @@ private fun queryDisplayName(context: Context, uri: Uri): String? =
         null
     )?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
 
+/**
+ * @brief 生成不会与现有名称重复的文件名。
+ * @param existing 现有名称列表。
+ * @param name 原始文件名。
+ * @return 可用文件名。
+ */
 private fun uniqueName(existing: List<String>, name: String): String {
     if (name !in existing) return name
     val dot = name.lastIndexOf('.')

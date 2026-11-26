@@ -1,9 +1,29 @@
+/**
+ * PCP ToolKit
+ * Copyright (C) 2026 VacancyoTP
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ *
+ * @file NumberFormat.cpp
+ * @brief 浮点数文本格式化实现。
+ *
+ * 该代码文件通过逐级增加有效数字尝试最短可逆文本，并补全缺少的小数点。
+ */
 #include "rton/NumberFormat.h"
 
 #include <cstdio>
 #include <cstdlib>
 
-namespace rton {
+namespace pcp::rton {
 
 std::string fmtFloat(float f) {
     char buf[64];
@@ -31,4 +51,4 @@ std::string makeFloatText(std::string t) {
     return t.substr(0, e) + ".0" + t.substr(e);
 }
 
-}  // namespace rton
+}  // namespace pcp::rton

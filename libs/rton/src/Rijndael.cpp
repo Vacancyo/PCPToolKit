@@ -1,3 +1,23 @@
+/**
+ * PCP ToolKit
+ * Copyright (C) 2026 VacancyoTP
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ *
+ * @file Rijndael.cpp
+ * @brief 可变分组 Rijndael 密码实现。
+ *
+ * 该代码文件实现 Rijndael S 盒初始化、密钥扩展、行移位、列混合以及分组加密和解密。
+ */
 #include "rton/Rijndael.h"
 
 #include <cstring>
@@ -5,7 +25,7 @@
 
 #include "common/I18n.h"
 
-namespace rton {
+namespace pcp::rton {
 
 std::uint8_t Rijndael::sbox_[256];
 std::uint8_t Rijndael::inv_[256];
@@ -22,7 +42,7 @@ std::uint8_t Rijndael::mul(std::uint8_t a, std::uint8_t b) {
 void Rijndael::initTables() {
     if (ready_) return;
     for (int i = 0; i < 256; i++) {
-        std::uint8_t x = 0;  // x = i 在 GF(2^8) 中的乘法逆元。0 的逆元定义为 0
+        std::uint8_t x = 0;  // x = i 在 GF（2^8） 中的乘法逆元。0 的逆元定义为 0
         if (i) { for (int c = 1; c < 256; c++) if (mul(static_cast<std::uint8_t>(i), static_cast<std::uint8_t>(c)) == 1) { x = static_cast<std::uint8_t>(c); break; } }
         std::uint8_t s = x;  // 仿射变换
         for (int k = 1; k <= 4; k++) s ^= static_cast<std::uint8_t>((x << k) | (x >> (8 - k)));
@@ -33,7 +53,7 @@ void Rijndael::initTables() {
 }
 
 Rijndael::Rijndael(const std::uint8_t* key, int keyLen, int blockLen) : Nb_(blockLen / 4), Nk_(keyLen / 4) {
-    if (blockLen % 4 || Nb_ < 4 || Nb_ > 8 || keyLen % 4 || Nk_ < 4 || Nk_ > 8) throw std::runtime_error(i18n::translate("rijndael.bad_params"));
+    if (blockLen % 4 || Nb_ < 4 || Nb_ > 8 || keyLen % 4 || Nk_ < 4 || Nk_ > 8) throw std::runtime_error(pcp::i18n::translate("rijndael.bad_params"));
     initTables();
     Nr_ = (Nk_ > Nb_ ? Nk_ : Nb_) + 6;
     int total = Nb_ * (Nr_ + 1);
@@ -94,4 +114,4 @@ void Rijndael::decryptBlock(std::uint8_t* s) const {
     shiftRows(s, true); subBytes(s, inv_); addKey(s, 0);
 }
 
-}  // namespace rton
+}  // namespace pcp::rton

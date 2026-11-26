@@ -1,3 +1,23 @@
+/**
+ * PCP ToolKit
+ * Copyright (C) 2026 VacancyoTP
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ *
+ * @file Reader.cpp
+ * @brief 小端二进制读取实现。
+ *
+ * 该代码文件实现小端整数、浮点数、变长整数和定长字节的读取，并在越界或格式不符时产生本地化错误。
+ */
 #include "rton/Reader.h"
 
 #include <cstring>
@@ -5,11 +25,11 @@
 
 #include "common/I18n.h"
 
-namespace rton {
+namespace pcp::rton {
 
 void Reader::fail(const std::string& key, const std::vector<std::string>& args) const {
-    // 先把具体原因翻译出来，再嵌进 "RTON 错误(偏移 N): 原因" 这个外层模板
-    throw std::runtime_error(i18n::translate("reader.error_at", {std::to_string(pos_), i18n::translate(key, args)}));
+    // 先把具体原因翻译出来，再嵌进 "RTON 错误（偏移 N）：原因" 这个外层模板
+    throw std::runtime_error(pcp::i18n::translate("reader.error_at", {std::to_string(pos_), pcp::i18n::translate(key, args)}));
 }
 
 std::uint8_t Reader::u8() { if (pos_ >= d_.size()) fail("reader.eof"); return d_[pos_++]; }
@@ -55,4 +75,4 @@ void Reader::expect8(std::uint8_t x) {
     if (g != x) { pos_--; fail("reader.expect_byte", {std::to_string(x), std::to_string(g)}); }
 }
 
-}  // namespace rton
+}  // namespace pcp::rton

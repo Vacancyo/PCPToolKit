@@ -1,3 +1,23 @@
+/**
+ * PCP ToolKit
+ * Copyright (C) 2026 VacancyoTP
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ *
+ * @file Encoder.cpp
+ * @brief RTON 二进制编码实现。
+ *
+ * 该代码文件实现 RTON 字符串、数字、对象、数组和类型标记的紧凑二进制编码，并输出完整 RTON 字节流。
+ */
 #include "rton/Encoder.h"
 
 #include <cctype>
@@ -14,11 +34,13 @@
 
 using std::string;
 
-namespace rton {
+namespace pcp::rton {
 
 namespace {
 
-/** @brief  计算 C# string.Length，用于 0x92 与 RTID 中的字符数字段。 */
+/**
+ * @brief 计算 C# string.Length，用于 0x92 与 RTID 中的字符数字段。
+ */
 size_t utf16Len(const string& s) {
     size_t n = 0;
     for (unsigned char c : s) {
@@ -28,8 +50,25 @@ size_t utf16Len(const string& s) {
     return n;
 }
 
+/**
+ * @brief 判断字符串是否全部为 ASCII 字符。
+ * @param s 待判断字符串。
+ * @return 全部为 ASCII 返回 true。
+ */
 bool isAscii(const string& s) { for (unsigned char c : s) if (c > 127) return false; return true; }
+
+/**
+ * @brief 判断字符串是否全部为数字字符。
+ * @param s 待判断字符串。
+ * @return 全部为数字返回 true。
+ */
 bool allDigits(const string& s) { if (s.empty()) return false; for (char c : s) if (c < '0' || c > '9') return false; return true; }
+
+/**
+ * @brief 判断字符串是否为 8 位十六进制文本。
+ * @param s 待判断字符串。
+ * @return 符合格式返回 true。
+ */
 bool isHex8(const string& s) { if (s.size() != 8) return false; for (char c : s) if (!std::isxdigit(static_cast<unsigned char>(c))) return false; return true; }
 
 }  // namespace
@@ -128,7 +167,7 @@ void Encoder::writeNumber(const string& t) {
     errno = 0;
     unsigned long long uv = std::strtoull(t.c_str(), &end, 10);
     if (errno == 0 && *end == 0 && t[0] != '-') { u8(0x46); u64(uv); return; }
-    throw std::runtime_error(i18n::translate("encoder.int_out_of_range", {t}));
+    throw std::runtime_error(pcp::i18n::translate("encoder.int_out_of_range", {t}));
 }
 
 void Encoder::writeValue(const Value& v) {
@@ -153,12 +192,12 @@ void Encoder::writeArray(const Value& v) {
     u8(0xFE);
 }
 
-common::Bytes Encoder::encode(const Value& root) {
-    if (root.type != Value::Obj) throw std::runtime_error(i18n::translate("encoder.root_not_object"));
+pcp::common::Bytes Encoder::encode(const Value& root) {
+    if (root.type != Value::Obj) throw std::runtime_error(pcp::i18n::translate("encoder.root_not_object"));
     raw(kMagic); u32(kVersion);
     writeObject(root);
     raw(kEofTag);
     return o_;
 }
 
-}  // namespace rton
+}  // namespace pcp::rton

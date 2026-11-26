@@ -1,3 +1,23 @@
+/**
+ * PCP ToolKit
+ * Copyright (C) 2026 VacancyoTP
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ *
+ * @file HomePage.kt
+ * @brief 首页界面。
+ *
+ * 该代码文件实现首页功能入口，并提供悬浮窗权限申请和快捷导航。
+ */
 package com.pcptoolkit.app.feature.home
 
 import android.content.Intent
@@ -27,11 +47,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pcptoolkit.app.platform.overlay.FloatingWindowService
 
+/**
+ * @brief 显示首页功能入口。
+ */
 @Composable
 internal fun HomePage() {
     val context = LocalContext.current
     var message by remember { mutableStateOf("") }
 
+    /**
+     * @brief 检查悬浮窗权限并启动悬浮窗服务。
+     */
     fun openOverlay() {
         if (Settings.canDrawOverlays(context)) {
             runCatching { FloatingWindowService.start(context) }

@@ -1,9 +1,29 @@
+/**
+ * PCP ToolKit
+ * Copyright (C) 2026 VacancyoTP
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ *
+ * @file MD5.cpp
+ * @brief MD5 摘要实现。
+ *
+ * 该代码文件实现标准 MD5 分块计算流程，并输出 32 位小写十六进制摘要。
+ */
 #include "rton/MD5.h"
 
 #include <cstdint>
 #include <cstdio>
 
-namespace rton {
+namespace pcp::rton {
 
 std::string md5Hex(const std::string& msg) {
     static const std::uint32_t K[64] = {
@@ -20,7 +40,7 @@ std::string md5Hex(const std::string& msg) {
     std::uint32_t a0 = 0x67452301, b0 = 0xefcdab89, c0 = 0x98badcfe, d0 = 0x10325476;
     std::string m = msg;
     std::uint64_t bitLen = static_cast<std::uint64_t>(msg.size()) * 8;
-    m += static_cast<char>(0x80);  // 填充: 0x80 + 若干 0 + 8 字节位长度
+    m += static_cast<char>(0x80);  // 填充：0x80 + 若干 0 + 8 字节位长度
     while (m.size() % 64 != 56) m += static_cast<char>(0);
     for (int i = 0; i < 8; i++) m += static_cast<char>((bitLen >> (8 * i)) & 0xFF);
     for (size_t off = 0; off < m.size(); off += 64) {
@@ -49,4 +69,4 @@ std::string md5Hex(const std::string& msg) {
     return std::string(out, 32);
 }
 
-}  // namespace rton
+}  // namespace pcp::rton

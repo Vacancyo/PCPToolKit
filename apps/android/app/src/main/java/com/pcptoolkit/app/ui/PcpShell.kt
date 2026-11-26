@@ -1,3 +1,23 @@
+/**
+ * PCP ToolKit
+ * Copyright (C) 2026 VacancyoTP
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ *
+ * @file PcpShell.kt
+ * @brief 应用主界面框架。
+ *
+ * 该代码文件实现主界面导航、侧边菜单、设置页面、语言选择和通用图标。
+ */
 package com.pcptoolkit.app.ui
 
 import androidx.activity.compose.BackHandler
@@ -72,12 +92,20 @@ import kotlin.math.sin
 private val MenuHeadingColor = Color(0xFF5E5E5E)
 private val SettingsHeadingColor = Color(0xFF187BDE)
 
+/**
+ * @brief 应用主界面中的页面。
+ */
 private enum class PcpPage(val titleKey: String) {
     HOME("nav.home"),
     RTON("nav.rton"),
     SCRIPTS("nav.scripts")
 }
 
+/**
+ * @brief 组合应用主导航和页面内容。
+ * @param vm RTON 转换状态管理对象。
+ * @param prefs 应用设置存储。
+ */
 @Composable
 fun PcpShell(
     lang: String,
@@ -103,7 +131,7 @@ fun PcpShell(
         }
     }
 
-    // NativeBridge 的语言不是 Compose 状态，用语言作为组合键重建所有 t() 文本。
+    // NativeBridge 的语言不是 Compose 状态，用语言作为组合键重建所有 t（） 文本。
     key(lang) {
         BoxWithConstraints(
             Modifier
@@ -190,6 +218,11 @@ fun PcpShell(
     }
 }
 
+/**
+ * @brief 显示带菜单按钮的顶部栏。
+ * @param title 页面标题。
+ * @param onMenuClick 菜单按钮回调。
+ */
 @Composable
 private fun PcpTopBar(title: String, onMenuClick: () -> Unit) {
     Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
@@ -218,6 +251,13 @@ private fun PcpTopBar(title: String, onMenuClick: () -> Unit) {
     }
 }
 
+/**
+ * @brief 显示应用侧边菜单。
+ * @param current 当前页面。
+ * @param onSelect 页面切换回调。
+ * @param onSettings 设置入口回调。
+ * @param onClose 关闭菜单回调。
+ */
 @Composable
 private fun SideMenu(
     modifier: Modifier,
@@ -296,6 +336,11 @@ private fun SideMenu(
     }
 }
 
+/**
+ * @brief 显示一组菜单项。
+ * @param title 分组标题。
+ * @param content 菜单内容。
+ */
 @Composable
 private fun MenuSection(
     title: String? = null,
@@ -344,6 +389,11 @@ private fun MenuSection(
     }
 }
 
+/**
+ * @brief 显示设置页面。
+ * @param prefs 应用设置存储。
+ * @param onBack 返回回调。
+ */
 @Composable
 private fun SettingsPage(
     lang: String,
@@ -398,6 +448,10 @@ private fun SettingsPage(
     }
 }
 
+/**
+ * @brief 显示设置页面顶部栏。
+ * @param onBack 返回回调。
+ */
 @Composable
 private fun SettingsTopBar(onBack: () -> Unit) {
     Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
@@ -426,6 +480,11 @@ private fun SettingsTopBar(onBack: () -> Unit) {
     }
 }
 
+/**
+ * @brief 显示一组设置项。
+ * @param title 分组标题。
+ * @param content 设置内容。
+ */
 @Composable
 private fun SettingsSection(
     title: String,
@@ -453,6 +512,11 @@ private fun SettingsSection(
     }
 }
 
+/**
+ * @brief 显示一个语言选项。
+ * @param lang 语言代码。
+ * @param onClick 点击回调。
+ */
 @Composable
 private fun LanguageRow(lang: String, onClick: () -> Unit) {
     val shape = RoundedCornerShape(14.dp)
@@ -478,6 +542,12 @@ private fun LanguageRow(lang: String, onClick: () -> Unit) {
     }
 }
 
+/**
+ * @brief 显示语言选择对话框。
+ * @param current 当前语言代码。
+ * @param onSelect 语言选择回调。
+ * @param onDismiss 关闭回调。
+ */
 @Composable
 private fun LanguagePicker(
     lang: String,
@@ -554,6 +624,9 @@ private fun LanguagePicker(
     }
 }
 
+/**
+ * @brief 绘制菜单图标。
+ */
 @Composable
 private fun HamburgerIcon() {
     val color = MaterialTheme.colorScheme.onSurface
@@ -581,6 +654,9 @@ private fun HamburgerIcon() {
     ) {}
 }
 
+/**
+ * @brief 绘制返回图标。
+ */
 @Composable
 private fun BackIcon() {
     val color = MaterialTheme.colorScheme.onSurface
@@ -610,6 +686,9 @@ private fun BackIcon() {
     }
 }
 
+/**
+ * @brief 绘制设置图标。
+ */
 @Composable
 private fun GearIcon() {
     val color = MaterialTheme.colorScheme.onSurfaceVariant

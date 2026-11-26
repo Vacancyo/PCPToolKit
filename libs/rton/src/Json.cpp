@@ -1,3 +1,23 @@
+/**
+ * PCP ToolKit
+ * Copyright (C) 2026 VacancyoTP
+ *
+ * This program is free software: you can redistribute it and/or modify it under the terms of the
+ * GNU General Public License as published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+ * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with this program. If
+ * not, see <https://www.gnu.org/licenses/>.
+ *
+ * @file Json.cpp
+ * @brief JSON 文本解析与序列化实现。
+ *
+ * 该代码文件实现带缩进的 JSON 序列化、宽松 JSON 解析、UTF-8 代理项处理和错误定位。
+ */
 #include "rton/Json.h"
 
 #include <cctype>
@@ -9,11 +29,13 @@
 
 using std::string;
 
-namespace rton {
+namespace pcp::rton {
 
 namespace {
 
-/** @brief  把字符串按 JSON 规则转义后追加到 o。 */
+/**
+ * @brief 把字符串按 JSON 规则转义后追加到 o。
+ */
 void jsonEscape(const string& s, string& o) {
     o += '"';
     for (unsigned char c : s) {
@@ -33,7 +55,9 @@ void jsonEscape(const string& s, string& o) {
     o += '"';
 }
 
-/** @brief  递归序列化。depth 为当前嵌套层级，用于缩进。 */
+/**
+ * @brief 递归序列化。depth 为当前嵌套层级，用于缩进。
+ */
 void writeValue(const Value& v, string& o, int depth) {
     auto indent = [&](int d) { o.append(static_cast<size_t>(d) * 2, ' '); };
     switch (v.type) {
@@ -68,12 +92,20 @@ void writeValue(const Value& v, string& o, int depth) {
     }
 }
 
-/** @brief  递归下降 JSON 解析器。 */
+/**
+ * @brief 递归下降 JSON 解析器。
+ */
 class JsonParser {
 public:
+    /**
+     * @brief 构造 JSON 解析器。
+     * @param str 待解析文本。
+     */
     explicit JsonParser(const string& str) : s_(str) {}
 
-    /** @brief  解析整个文本，并确认根值之后没有多余内容。 */
+    /**
+     * @brief 解析整个文本，并确认根值之后没有多余内容。
+     */
     Value parseDocument() {
         Value root = parseValue(0);
         ws();
@@ -85,13 +117,21 @@ private:
     const string& s_;  ///< 待解析文本
     size_t p_ = 0;     ///< 当前读取位置
 
-    /** @brief  抛出带偏移量的错误;key 是具体原因的消息键。 */
+    /**
+     * @brief 抛出带偏移量的错误；key 是具体原因的消息键。
+     */
     [[noreturn]] void fail(const string& key) const {
-        throw std::runtime_error(i18n::translate("json.error_at", {std::to_string(p_), i18n::translate(key)}));
+        throw std::runtime_error(pcp::i18n::translate("json.error_at", {std::to_string(p_), pcp::i18n::translate(key)}));
     }
+
+    /**
+     * @brief 跳过 JSON 空白字符。
+     */
     void ws() { while (p_ < s_.size() && (s_[p_] == ' ' || s_[p_] == '\t' || s_[p_] == '\n' || s_[p_] == '\r')) p_++; }
 
-    /** @brief  把 Unicode 码点编码为 UTF-8 并追加。 */
+    /**
+     * @brief 把 Unicode 码点编码为 UTF-8 并追加。
+     */
     static void putUtf8(string& o, uint32_t c) {
         if (c < 0x80) o += static_cast<char>(c);
         else if (c < 0x800) { o += static_cast<char>(0xC0 | (c >> 6)); o += static_cast<char>(0x80 | (c & 0x3F)); }
@@ -99,7 +139,9 @@ private:
         else { o += static_cast<char>(0xF0 | (c >> 18)); o += static_cast<char>(0x80 | ((c >> 12) & 0x3F)); o += static_cast<char>(0x80 | ((c >> 6) & 0x3F)); o += static_cast<char>(0x80 | (c & 0x3F)); }
     }
 
-    /** @brief  读取 \u 后的 4 位十六进制数。 */
+    /**
+     * @brief 读取 \u 后的 4 位十六进制数。
+     */
     uint32_t hex4() {
         if (p_ + 4 > s_.size()) fail("json.u_incomplete");
         uint32_t v = 0;
@@ -113,7 +155,9 @@ private:
         return v;
     }
 
-    /** @brief  解析字符串，处理转义与代理对。 */
+    /**
+     * @brief 解析字符串，处理转义与代理对。
+     */
     string parseString() {
         if (p_ >= s_.size() || s_[p_] != '"') fail("json.expect_string");
         p_++; string o;
@@ -130,7 +174,7 @@ private:
                 case 'r': o += '\r'; break; case 't': o += '\t'; break;
                 case 'u': {
                     uint32_t cp = hex4();
-                    if (cp >= 0xD800 && cp < 0xDC00) {  // 高代理项,需接低代理项
+                    if (cp >= 0xD800 && cp < 0xDC00) {  // 高代理项，需接低代理项
                         if (p_ + 1 < s_.size() && s_[p_] == '\\' && s_[p_ + 1] == 'u') {
                             p_ += 2; uint32_t lo = hex4();
                             if (lo >= 0xDC00 && lo < 0xE000) cp = 0x10000 + ((cp - 0xD800) << 10) + (lo - 0xDC00);
@@ -146,7 +190,9 @@ private:
         return o;
     }
 
-    /** @brief  解析任意值。depth 用于限制嵌套深度。 */
+    /**
+     * @brief 解析任意值。depth 用于限制嵌套深度。
+     */
     Value parseValue(int depth) {
         if (depth > 512) fail("json.too_deep");
         ws();
@@ -207,4 +253,4 @@ std::string writeJson(const Value& v) {
     return o;
 }
 
-}  // namespace rton
+}  // namespace pcp::rton
