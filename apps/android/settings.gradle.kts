@@ -19,9 +19,12 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven("https://www.jitpack.io")
     }
 }
 
 rootProject.name = "android"
 include(":app")
- 
+include(":Bcore")
+include(":black-reflection")
+include(":compiler")

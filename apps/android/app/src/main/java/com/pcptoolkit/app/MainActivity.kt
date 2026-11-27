@@ -21,6 +21,7 @@
 package com.pcptoolkit.app
 
 import android.content.SharedPreferences
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -61,6 +62,11 @@ class MainActivity : ComponentActivity() {
 
         setContent { AppTheme { Screen(vm, prefs) } }
     }
+
+    override fun onResume() {
+        super.onResume()
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    }
 }
 
 /**
@@ -98,9 +104,17 @@ internal fun t(k: String) = NativeBridge.translate(k)
 @Composable
 fun Screen(vm: ConvertViewModel, prefs: SharedPreferences) {
     var lang by remember { mutableStateOf(prefs.getString("lang", "zh_CN") ?: "zh_CN") }
+    var overlayEnabled by remember {
+        mutableStateOf(prefs.getBoolean("overlay_on_launch", false))
+    }
 
     PcpShell(
         lang = lang,
+        overlayEnabled = overlayEnabled,
+        onOverlayPreferenceChange = { enabled ->
+            prefs.edit { putBoolean("overlay_on_launch", enabled) }
+            overlayEnabled = enabled
+        },
         onLanguageChange = { code ->
             if (NativeBridge.setLanguage(code)) {
                 prefs.edit { putString("lang", code) }

@@ -12,7 +12,7 @@ android {
     defaultConfig {
         applicationId = "com.pcptoolkit.app"
         minSdk = 24
-        targetSdk = 37
+        targetSdk = 28
         versionCode = 1
         versionName = "1.0"
 
@@ -36,6 +36,11 @@ android {
             }
         }
     }
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -46,6 +51,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":Bcore"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.compose.material3)

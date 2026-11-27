@@ -20,7 +20,12 @@
  */
 package com.pcptoolkit.app.ui
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -59,6 +64,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -76,6 +82,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -83,8 +90,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.pcptoolkit.app.LANGS
-import com.pcptoolkit.app.feature.home.HomePage
+import com.pcptoolkit.app.feature.sandbox.SandboxApp
+import com.pcptoolkit.app.feature.sandbox.SandboxPage
 import com.pcptoolkit.app.feature.script.ScriptsPage
+import com.pcptoolkit.app.platform.overlay.FloatingWindowService
 import com.pcptoolkit.app.t
 import kotlin.math.cos
 import kotlin.math.sin
@@ -109,6 +118,8 @@ private enum class PcpPage(val titleKey: String) {
 @Composable
 fun PcpShell(
     lang: String,
+    overlayEnabled: Boolean,
+    onOverlayPreferenceChange: (Boolean) -> Unit,
     onLanguageChange: (String) -> Unit,
     rtonContent: @Composable () -> Unit
 ) {
@@ -116,6 +127,7 @@ fun PcpShell(
     var menuOpen by remember { mutableStateOf(false) }
     var settingsOpen by remember { mutableStateOf(false) }
     var languageOpen by remember { mutableStateOf(false) }
+    var sandboxFileApp by remember { mutableStateOf<SandboxApp?>(null) }
 
     val menuProgress by animateFloatAsState(
         targetValue = if (menuOpen) 1f else 0f,
@@ -139,6 +151,7 @@ fun PcpShell(
                 .background(MaterialTheme.colorScheme.background)
         ) {
             val menuWidth = maxWidth * 3f / 4f
+            val context = LocalContext.current
 
             Box(
                 Modifier
@@ -146,14 +159,27 @@ fun PcpShell(
                     .graphicsLayer { translationX = menuWidth.toPx() * menuProgress }
                     .zIndex(1f)
             ) {
+                val fileManagerOpen = page == PcpPage.HOME && sandboxFileApp != null
                 Column(Modifier.fillMaxSize()) {
                     PcpTopBar(
-                        title = t(page.titleKey),
-                        onMenuClick = { menuOpen = !menuOpen }
+                        title = if (fileManagerOpen) t("sandbox.file_manager")
+                        else t(page.titleKey),
+                        showBack = fileManagerOpen,
+                        onMenuClick = {
+                            if (fileManagerOpen) {
+                                sandboxFileApp = null
+                            } else {
+                                menuOpen = !menuOpen
+                            }
+                        }
                     )
                     Box(Modifier.weight(1f)) {
                         when (page) {
-                            PcpPage.HOME -> HomePage()
+                            PcpPage.HOME -> SandboxPage(
+                                overlayEnabled = overlayEnabled,
+                                fileApp = sandboxFileApp,
+                                onFileAppChange = { sandboxFileApp = it }
+                            )
                             PcpPage.RTON -> rtonContent()
                             PcpPage.SCRIPTS -> ScriptsPage()
                         }
@@ -183,6 +209,7 @@ fun PcpShell(
                 selected = page,
                 onPageClick = {
                     page = it
+                    sandboxFileApp = null
                     menuOpen = false
                 },
                 onSettingsClick = {
@@ -207,8 +234,13 @@ fun PcpShell(
             ) {
                 SettingsPage(
                     lang = lang,
+                    overlayEnabled = overlayEnabled,
                     languageOpen = languageOpen,
                     onBack = { settingsOpen = false },
+                    onOverlayEnabledChange = { enabled ->
+                        if (!enabled) FloatingWindowService.stop(context)
+                        onOverlayPreferenceChange(enabled)
+                    },
                     onLanguageClick = { languageOpen = true },
                     onLanguageDismiss = { languageOpen = false },
                     onLanguageChange = onLanguageChange
@@ -224,7 +256,11 @@ fun PcpShell(
  * @param onMenuClick 菜单按钮回调。
  */
 @Composable
-private fun PcpTopBar(title: String, onMenuClick: () -> Unit) {
+private fun PcpTopBar(
+    title: String,
+    showBack: Boolean,
+    onMenuClick: () -> Unit
+) {
     Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
         Box(
             Modifier
@@ -243,9 +279,19 @@ private fun PcpTopBar(title: String, onMenuClick: () -> Unit) {
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .padding(start = 8.dp)
-                    .semantics { contentDescription = t("nav.menu") }
+                    .semantics {
+                        contentDescription = if (showBack) {
+                            t("sandbox.files.back")
+                        } else {
+                            t("nav.menu")
+                        }
+                    }
             ) {
-                HamburgerIcon()
+                if (showBack) {
+                    BackIcon()
+                } else {
+                    HamburgerIcon()
+                }
             }
         }
     }
@@ -397,8 +443,10 @@ private fun MenuSection(
 @Composable
 private fun SettingsPage(
     lang: String,
+    overlayEnabled: Boolean,
     languageOpen: Boolean,
     onBack: () -> Unit,
+    onOverlayEnabledChange: (Boolean) -> Unit,
     onLanguageClick: () -> Unit,
     onLanguageDismiss: () -> Unit,
     onLanguageChange: (String) -> Unit
@@ -417,9 +465,12 @@ private fun SettingsPage(
                     .navigationBarsPadding()
             ) {
                 Spacer(Modifier.height(14.dp))
-                SettingsSection(t("settings.general"))
-                HorizontalDivider()
-                SettingsSection(t("settings.appearance"))
+                SettingsSection(t("settings.game")) {
+                    OverlaySettingRow(
+                        overlayEnabled = overlayEnabled,
+                        onEnabledChange = onOverlayEnabledChange
+                    )
+                }
                 HorizontalDivider()
                 SettingsSection(t("settings.other")) {
                     LanguageRow(
@@ -443,6 +494,85 @@ private fun SettingsPage(
                 lang = lang,
                 onDismiss = onLanguageDismiss,
                 onLanguageChange = onLanguageChange
+            )
+        }
+    }
+}
+
+/**
+ * @brief 显示启动游戏时自动打开悬浮窗的设置项。
+ */
+@Composable
+private fun OverlaySettingRow(
+    overlayEnabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit
+) {
+    val context = LocalContext.current
+    var permissionDenied by remember { mutableStateOf(false) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        val granted = Settings.canDrawOverlays(context)
+        permissionDenied = !granted
+        if (granted) onEnabledChange(true)
+    }
+    val hasPermission = Settings.canDrawOverlays(context)
+    val checked = overlayEnabled && hasPermission
+
+    fun changeEnabled(enabled: Boolean) {
+        permissionDenied = false
+        if (!enabled) {
+            onEnabledChange(false)
+            return
+        }
+        if (Settings.canDrawOverlays(context)) {
+            onEnabledChange(true)
+        } else {
+            runCatching {
+                permissionLauncher.launch(
+                    Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:${context.packageName}")
+                    )
+                )
+            }.onFailure {
+                permissionDenied = true
+            }
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .clickable { changeEnabled(!checked) }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = t("settings.floating_window"),
+                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp)
+                )
+                Text(
+                    text = t("settings.floating_window_desc"),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Switch(
+                checked = checked,
+                onCheckedChange = ::changeEnabled
+            )
+        }
+        if (permissionDenied) {
+            Text(
+                text = t("settings.floating_window_permission_denied"),
+                modifier = Modifier.padding(horizontal = 16.dp),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall
             )
         }
     }

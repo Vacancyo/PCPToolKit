@@ -1170,7 +1170,7 @@ class FloatingWindowService : Service() {
      * @return 通知构建器。
      */
     private fun notification(running: Boolean) = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setSmallIcon(R.mipmap.ic_launcher)
+        .setSmallIcon(R.drawable.ic_pcp_launcher_monochrome)
         .setContentTitle(getString(R.string.floating_notification_title))
         .setContentText(
             if (running) "脚本运行中" else getString(R.string.floating_notification_text)
@@ -1284,6 +1284,14 @@ class FloatingWindowService : Service() {
                 context,
                 Intent(context, FloatingWindowService::class.java)
             )
+        }
+
+        /**
+         * @brief 停止悬浮窗服务。
+         * @param context 用于停止服务的上下文。
+         */
+        fun stop(context: Context) {
+            context.stopService(Intent(context, FloatingWindowService::class.java))
         }
     }
 }

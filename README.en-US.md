@@ -4,7 +4,7 @@
 
 > An Android companion toolbox for *Plants vs. Zombies 2 China Edition*
 
-PCP Toolkit (PCP) is an early-stage Android companion toolbox for **Plants vs. Zombies 2 China Edition** (PvZ2C). The current app only converts PopCap's binary **RTON** format to **JSON** and back.
+PCP Toolkit (PCP) is an early-stage Android companion toolbox for **Plants vs. Zombies 2 China Edition** (PvZ2C). The current app converts PopCap's binary **RTON** format to **JSON** and back, and includes a basic sandbox for importing and running standalone APKs.
 
 > PCP is in early development. Format support, UI, and project structure may change.
 
@@ -17,6 +17,7 @@ PCP Toolkit (PCP) is an early-stage Android companion toolbox for **Plants vs. Z
 - **Task feedback**: view the current stage, progress, success/failure counts, per-file results, and request cancellation.
 - **Bilingual UI**: switch between Simplified Chinese and English inside the app.
 - **Native core**: the RTON/JSON converter is implemented in C++ and exposed to the Android app through JNI.
+- **Basic sandbox**: import an APK from the system file picker, then install, list, launch, and uninstall it in PCP private storage.
 
 PCP supports Android 7.0 (API 24) and later. Builds include `arm64-v8a` and `x86_64`.
 
@@ -26,6 +27,9 @@ PCP supports Android 7.0 (API 24) and later. Builds include `arm64-v8a` and `x86
 - RTON support is still evolving. Some RTON value types are not implemented and return an error.
 - Cancellation stops after the current file finishes processing.
 - The desktop app, game automation, level editor, and script community are not available yet.
+- The sandbox core currently packages ARM64/ARMv7 native libraries, so sandboxed apps cannot run on x86_64 emulators.
+- Large APKs are copied into private storage on first import, requiring extra space and potentially several minutes.
+- The sandbox uses a general-purpose app container. pvz2's 64-bit native engine, child processes, and SDKs have not been specifically validated, so compatibility must be tested on a physical device.
 
 ## Planned features
 
@@ -103,6 +107,9 @@ cmake --build build/core --config Release
 ```text
 apps/
   android/          Android app, Compose UI, and JNI bridge
+    Bcore/          Apache-2.0 Blacks BlackBox sandbox core
+    black-reflection/  Reflection support for the sandbox core
+    compiler/       Annotation processor for the sandbox core
 libs/
   common/           Shared file I/O and internationalization code
   rton/             RTON/JSON codecs, encryption, and batch conversion

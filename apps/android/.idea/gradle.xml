@@ -10,7 +10,10 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/Bcore" />
             <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/black-reflection" />
+            <option value="$PROJECT_DIR$/compiler" />
           </set>
         </option>
         <option name="myGradleHome" value="D:\Tools\Android\.gradle\wrapper\dists\gradle-9.6.0-bin\3yr5qo1p853jn7m5o1j0u2qkd\gradle-9.6.0" />
