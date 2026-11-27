@@ -642,12 +642,7 @@ class FloatingWindowService : Service() {
         val previous = selectedScript?.name
         selectedScript = null
         group.removeAllViews()
-        val tree = ScriptStore.treeUri(this)
-        if (tree == null) {
-            statusView?.text = "请先在“我的脚本”选择脚本文件夹"
-            return
-        }
-        val loaded = ScriptStore.list(this, tree)
+        val loaded = ScriptStore.list(this)
         if (loaded == null) {
             statusView?.text = "无法读取脚本文件夹"
             return

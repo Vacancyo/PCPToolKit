@@ -55,6 +55,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.pcptoolkit.app.feature.editor.TextEditorTarget
 import com.pcptoolkit.app.platform.overlay.FloatingWindowService
 import com.pcptoolkit.app.t
 import kotlinx.coroutines.Dispatchers
@@ -69,7 +70,9 @@ import kotlinx.coroutines.withContext
 fun SandboxPage(
     overlayEnabled: Boolean,
     fileApp: SandboxApp?,
-    onFileAppChange: (SandboxApp?) -> Unit
+    onFileAppChange: (SandboxApp?) -> Unit,
+    onEditText: (TextEditorTarget) -> Unit,
+    onToast: (String, Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -174,7 +177,9 @@ fun SandboxPage(
     fileApp?.let { selected ->
         SandboxFilePage(
             app = selected,
-            onBack = { onFileAppChange(null) }
+            onBack = { onFileAppChange(null) },
+            onEditText = onEditText,
+            onToast = onToast
         )
         return
     }
@@ -227,17 +232,6 @@ fun SandboxPage(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(t("sandbox.test_empty"))
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            previewEmpty = false
-                            pendingUninstall = app
-                            showTestDialog = false
-                        },
-                        enabled = app != null,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(t("sandbox.test_uninstall"))
                     }
                     if (previewEmpty) {
                         TextButton(
@@ -300,7 +294,6 @@ fun SandboxPage(
             )
             else -> GameDashboard(
                 app = shownApp,
-                overlayEnabled = overlayEnabled,
                 onLaunch = { launchGame(shownApp) },
                 onUninstall = { pendingUninstall = shownApp },
                 onFiles = { onFileAppChange(shownApp) },
@@ -417,7 +410,6 @@ private fun EmptySandboxState(
 @Composable
 private fun GameDashboard(
     app: SandboxApp,
-    overlayEnabled: Boolean,
     onLaunch: () -> Unit,
     onUninstall: () -> Unit,
     onFiles: () -> Unit,
@@ -512,14 +504,6 @@ private fun GameDashboard(
             Text(t("sandbox.uninstall"))
         }
 
-        if (overlayEnabled) {
-            Spacer(Modifier.height(14.dp))
-            Text(
-                text = t("sandbox.overlay_enabled"),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
         Spacer(Modifier.height(18.dp))
     }
 }

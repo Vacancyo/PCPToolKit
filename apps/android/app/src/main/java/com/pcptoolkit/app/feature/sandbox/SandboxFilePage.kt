@@ -43,14 +43,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -80,11 +81,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.pcptoolkit.app.feature.editor.SandboxTextEditorTarget
+import com.pcptoolkit.app.feature.editor.TextEditorTarget
 import com.pcptoolkit.app.t
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -97,7 +99,9 @@ import java.util.Locale
 @Composable
 fun SandboxFilePage(
     app: SandboxApp,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onEditText: (TextEditorTarget) -> Unit,
+    onToast: (String, Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -107,10 +111,6 @@ fun SandboxFilePage(
     var loading by remember { mutableStateOf(true) }
     var refreshing by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf<String?>(null) }
-    var messageIsError by remember { mutableStateOf(false) }
-    var editorEntry by remember { mutableStateOf<SandboxFileEntry?>(null) }
-    var editorText by remember { mutableStateOf("") }
     var pendingExport by remember { mutableStateOf<SandboxFileEntry?>(null) }
     var pendingDelete by remember { mutableStateOf<SandboxFileEntry?>(null) }
     var pendingAction by remember { mutableStateOf<SandboxFileEntry?>(null) }
@@ -120,25 +120,20 @@ fun SandboxFilePage(
     var showAddDialog by remember { mutableStateOf(false) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var newEntryName by remember { mutableStateOf("") }
+    var pendingImportConflict by remember { mutableStateOf<PendingSandboxImport?>(null) }
+    var importConflictPolicy by remember {
+        mutableStateOf<SandboxImportConflictAction?>(null)
+    }
     val backHistory = remember { mutableStateListOf<String>() }
     val forwardHistory = remember { mutableStateListOf<String>() }
 
-    BackHandler {
-        if (editorEntry != null) {
-            editorEntry = null
-        } else {
-            onBack()
-        }
-    }
-
-    fun reportSuccess(text: String) {
-        messageIsError = false
-        message = text
-    }
+    BackHandler(onBack = onBack)
 
     fun reportFailure(action: String, error: Throwable) {
-        messageIsError = true
-        message = "$action: ${error.message ?: error.javaClass.simpleName}"
+        onToast(
+            "$action: ${error.message ?: error.javaClass.simpleName}",
+            true
+        )
     }
 
     fun reload(showRefreshIndicator: Boolean = false) {
@@ -195,27 +190,70 @@ fun SandboxFilePage(
         forwardHistory.clear()
     }
 
+    fun importCandidate(
+        candidate: PendingSandboxImport,
+        action: SandboxImportConflictAction
+    ) {
+        busy = true
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    SandboxFileRepository.importFile(
+                        context,
+                        app.packageName,
+                        candidate.area,
+                        candidate.directoryPath,
+                        candidate.source,
+                        candidate.displayName,
+                        action
+                    )
+                }
+            }
+            busy = false
+            result.onSuccess { reload() }
+                .onFailure {
+                    reportFailure(t("sandbox.files.import_failed"), it)
+                }
+        }
+    }
+
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
+            val importArea = area
+            val importPath = relativePath
             busy = true
             scope.launch {
                 val result = withContext(Dispatchers.IO) {
                     runCatching {
-                        SandboxFileRepository.importFile(
+                        SandboxFileRepository.inspectImport(
                             context,
                             app.packageName,
-                            area,
-                            relativePath,
+                            importArea,
+                            importPath,
                             uri
                         )
                     }
                 }
                 busy = false
-                result.onSuccess {
-                    reportSuccess(t("sandbox.files.imported") + " " + it.name)
-                    reload()
+                result.onSuccess { candidate ->
+                    val pending = PendingSandboxImport(
+                        source = uri,
+                        area = importArea,
+                        directoryPath = importPath,
+                        displayName = candidate.displayName
+                    )
+                    if (!candidate.targetExists) {
+                        importCandidate(pending, SandboxImportConflictAction.REPLACE)
+                    } else {
+                        val policy = importConflictPolicy
+                        if (policy == null) {
+                            pendingImportConflict = pending
+                        } else {
+                            importCandidate(pending, policy)
+                        }
+                    }
                 }.onFailure {
                     reportFailure(t("sandbox.files.import_failed"), it)
                 }
@@ -243,58 +281,9 @@ fun SandboxFilePage(
                     }
                 }
                 busy = false
-                result.onSuccess {
-                    reportSuccess(t("sandbox.files.exported") + " " + target.name)
-                }.onFailure {
+                result.onFailure {
                     reportFailure(t("sandbox.files.export_failed"), it)
                 }
-            }
-        }
-    }
-
-    fun openEditor(entry: SandboxFileEntry) {
-        busy = true
-        scope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    SandboxFileRepository.readText(
-                        app.packageName,
-                        area,
-                        entry.relativePath
-                    )
-                }
-            }
-            busy = false
-            result.onSuccess {
-                editorEntry = entry
-                editorText = it.text
-            }.onFailure {
-                reportFailure(t("sandbox.files.read_failed"), it)
-            }
-        }
-    }
-
-    fun saveEditor() {
-        val entry = editorEntry ?: return
-        busy = true
-        scope.launch {
-            val result = withContext(Dispatchers.IO) {
-                runCatching {
-                    SandboxFileRepository.writeText(
-                        app.packageName,
-                        area,
-                        entry.relativePath,
-                        editorText
-                    )
-                }
-            }
-            busy = false
-            result.onSuccess {
-                editorEntry = null
-                reportSuccess(t("sandbox.files.saved") + " " + entry.name)
-                reload()
-            }.onFailure {
-                reportFailure(t("sandbox.files.write_failed"), it)
             }
         }
     }
@@ -318,12 +307,6 @@ fun SandboxFilePage(
             result.onSuccess {
                 showCreateDialog = false
                 newEntryName = ""
-                reportSuccess(
-                    t(
-                        if (isDirectory) "sandbox.files.directory_created"
-                        else "sandbox.files.file_created"
-                    ) + " " + it.name
-                )
                 reload()
             }.onFailure {
                 reportFailure(t("sandbox.files.create_failed"), it)
@@ -351,7 +334,6 @@ fun SandboxFilePage(
             result.onSuccess {
                 pendingRename = null
                 renameName = ""
-                reportSuccess(t("sandbox.files.renamed") + " " + it.name)
                 reload()
             }.onFailure {
                 reportFailure(t("sandbox.files.rename_failed"), it)
@@ -497,6 +479,18 @@ fun SandboxFilePage(
         )
     }
 
+    pendingImportConflict?.let { candidate ->
+        FileConflictDialog(
+            fileName = candidate.displayName,
+            onDismiss = { pendingImportConflict = null },
+            onConfirm = { action, applyToFollowing ->
+                pendingImportConflict = null
+                importConflictPolicy = if (applyToFollowing) action else null
+                importCandidate(candidate, action)
+            }
+        )
+    }
+
     pendingDelete?.let { file ->
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
@@ -515,7 +509,6 @@ fun SandboxFilePage(
                             }
                             busy = false
                             result.onSuccess {
-                                reportSuccess(t("sandbox.files.deleted") + " " + file.name)
                                 reload()
                             }.onFailure {
                                 reportFailure(t("sandbox.files.delete_failed"), it)
@@ -532,54 +525,6 @@ fun SandboxFilePage(
                 }
             }
         )
-    }
-
-    editorEntry?.let { file ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .navigationBarsPadding()
-                .padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = file.name,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1
-                )
-                TextButton(onClick = { editorEntry = null }) {
-                    Text(t("common.cancel"))
-                }
-                TextButton(onClick = ::saveEditor, enabled = !busy) {
-                    Text(t("sandbox.files.save"))
-                }
-            }
-            OutlinedTextField(
-                value = editorText,
-                onValueChange = { editorText = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                textStyle = MaterialTheme.typography.bodySmall.copy(
-                    fontFamily = FontFamily.Monospace
-                ),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
-            )
-            if (busy) {
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(modifier = Modifier.padding(8.dp))
-                }
-            }
-        }
-        return
     }
 
     Box(
@@ -618,16 +563,6 @@ fun SandboxFilePage(
                 maxLines = 1,
                 overflow = TextOverflow.StartEllipsis
             )
-
-            message?.let {
-                Text(
-                    text = it,
-                    modifier = Modifier.padding(bottom = 6.dp),
-                    color = if (messageIsError) MaterialTheme.colorScheme.error
-                    else MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
 
             if (busy) {
                 Row(
@@ -686,7 +621,14 @@ fun SandboxFilePage(
                                     if (entry.isDirectory) {
                                         navigateTo(entry.relativePath)
                                     } else if (entry.isEditableText) {
-                                        openEditor(entry)
+                                        onEditText(
+                                            SandboxTextEditorTarget(
+                                                packageName = app.packageName,
+                                                area = area,
+                                                relativePath = entry.relativePath,
+                                                displayName = entry.name
+                                            )
+                                        )
                                     }
                                 },
                                 onLongPress = { pendingAction = entry }
@@ -1069,6 +1011,9 @@ private fun PropertiesDialog(
     properties: SandboxFileProperties,
     onDismiss: () -> Unit
 ) {
+    val modifiedTime = remember(properties.lastModified) {
+        formatModifiedTime(properties.lastModified)
+    }
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier
@@ -1102,7 +1047,7 @@ private fun PropertiesDialog(
                     )
                     PropertyRow(
                         t("sandbox.files.modified"),
-                        formatModifiedTime(properties.lastModified)
+                        modifiedTime
                     )
                     PropertyRow(
                         t("sandbox.files.permissions"),
@@ -1128,6 +1073,115 @@ private fun PropertiesDialog(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun FileConflictDialog(
+    fileName: String,
+    onDismiss: () -> Unit,
+    onConfirm: (SandboxImportConflictAction, Boolean) -> Unit
+) {
+    var selected by remember(fileName) {
+        mutableStateOf(SandboxImportConflictAction.REPLACE)
+    }
+    var applyToFollowing by remember(fileName) { mutableStateOf(false) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 520.dp),
+            shape = RoundedCornerShape(22.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 8.dp
+        ) {
+            Column {
+                Text(
+                    text = t("sandbox.files.conflict_title"),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 18.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                HorizontalDivider()
+                Text(
+                    text = fileName,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                ConflictChoice(
+                    text = t("sandbox.files.conflict_replace"),
+                    selected = selected == SandboxImportConflictAction.REPLACE,
+                    onClick = { selected = SandboxImportConflictAction.REPLACE }
+                )
+                ConflictChoice(
+                    text = t("sandbox.files.conflict_skip"),
+                    selected = selected == SandboxImportConflictAction.SKIP,
+                    onClick = { selected = SandboxImportConflictAction.SKIP }
+                )
+                ConflictChoice(
+                    text = t("sandbox.files.conflict_keep_both"),
+                    selected = selected == SandboxImportConflictAction.KEEP_BOTH,
+                    onClick = { selected = SandboxImportConflictAction.KEEP_BOTH }
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { applyToFollowing = !applyToFollowing }
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = applyToFollowing,
+                        onCheckedChange = { applyToFollowing = it }
+                    )
+                    Text(
+                        text = t("sandbox.files.conflict_apply_to_following"),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(t("common.cancel"), color = Color(0xFF2563EB))
+                    }
+                    TextButton(onClick = { onConfirm(selected, applyToFollowing) }) {
+                        Text(t("common.confirm"), color = Color(0xFF2563EB))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConflictChoice(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(selected = selected, onClick = onClick)
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium
+        )
     }
 }
 
@@ -1514,6 +1568,9 @@ private fun SandboxFileRow(
     onOpen: () -> Unit,
     onLongPress: () -> Unit
 ) {
+    val modifiedTime = remember(entry.lastModified) {
+        formatModifiedTime(entry.lastModified)
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1538,7 +1595,7 @@ private fun SandboxFileRow(
             Spacer(Modifier.height(3.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = formatModifiedTime(entry.lastModified),
+                    text = modifiedTime,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
@@ -1657,6 +1714,13 @@ private enum class FileEntryKind {
     TEXT,
     GENERIC
 }
+
+private data class PendingSandboxImport(
+    val source: Uri,
+    val area: SandboxFileArea,
+    val directoryPath: String,
+    val displayName: String
+)
 
 private fun SandboxFileEntry.kind(): FileEntryKind = when {
     isDirectory -> FileEntryKind.FOLDER

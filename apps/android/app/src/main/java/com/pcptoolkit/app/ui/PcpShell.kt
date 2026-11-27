@@ -63,6 +63,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -72,6 +73,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -83,18 +85,28 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.zIndex
 import com.pcptoolkit.app.LANGS
+import com.pcptoolkit.app.R
+import com.pcptoolkit.app.feature.editor.LoadedTextDocument
+import com.pcptoolkit.app.feature.editor.TextEditorPage
+import com.pcptoolkit.app.feature.editor.TextEditorTarget
 import com.pcptoolkit.app.feature.sandbox.SandboxApp
 import com.pcptoolkit.app.feature.sandbox.SandboxPage
 import com.pcptoolkit.app.feature.script.ScriptsPage
 import com.pcptoolkit.app.platform.overlay.FloatingWindowService
 import com.pcptoolkit.app.t
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -127,7 +139,20 @@ fun PcpShell(
     var menuOpen by remember { mutableStateOf(false) }
     var settingsOpen by remember { mutableStateOf(false) }
     var languageOpen by remember { mutableStateOf(false) }
+    var restartNoticeOpen by remember { mutableStateOf(false) }
     var sandboxFileApp by remember { mutableStateOf<SandboxApp?>(null) }
+    var editorDocument by remember { mutableStateOf<LoadedTextDocument?>(null) }
+    var editorVisible by remember { mutableStateOf(false) }
+    var editorLoading by remember { mutableStateOf(false) }
+    val toastState = rememberPcpToastState()
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    val editorProgress by animateFloatAsState(
+        targetValue = if (editorVisible) 1f else 0f,
+        animationSpec = tween(280, easing = FastOutSlowInEasing),
+        label = "editor"
+    )
 
     val menuProgress by animateFloatAsState(
         targetValue = if (menuOpen) 1f else 0f,
@@ -135,8 +160,46 @@ fun PcpShell(
         label = "menu"
     )
 
-    BackHandler(enabled = settingsOpen || languageOpen || menuOpen) {
+    fun openEditor(target: TextEditorTarget) {
+        if (editorLoading || editorDocument != null) return
+        editorLoading = true
+        scope.launch {
+            val result = runCatching {
+                target.read(context)
+            }
+            editorLoading = false
+            result.onSuccess { text ->
+                menuOpen = false
+                settingsOpen = false
+                editorDocument = LoadedTextDocument(target, text)
+                editorVisible = true
+            }.onFailure {
+                scope.launch {
+                    toastState.show(
+                        t("editor.read_failed") + ": " +
+                            (it.message ?: it.javaClass.simpleName),
+                        isError = true
+                    )
+                }
+            }
+        }
+    }
+
+    fun closeEditor() {
+        editorVisible = false
+        scope.launch {
+            delay(280)
+            editorDocument = null
+        }
+    }
+
+    val showToast: (String, Boolean) -> Unit = { text, isError ->
+        scope.launch { toastState.show(text, isError) }
+    }
+
+    BackHandler(enabled = restartNoticeOpen || settingsOpen || languageOpen || menuOpen) {
         when {
+            restartNoticeOpen -> restartNoticeOpen = false
             languageOpen -> languageOpen = false
             settingsOpen -> settingsOpen = false
             else -> menuOpen = false
@@ -151,12 +214,13 @@ fun PcpShell(
                 .background(MaterialTheme.colorScheme.background)
         ) {
             val menuWidth = maxWidth * 3f / 4f
-            val context = LocalContext.current
-
             Box(
                 Modifier
                     .fillMaxSize()
-                    .graphicsLayer { translationX = menuWidth.toPx() * menuProgress }
+                    .graphicsLayer {
+                        translationX =
+                            menuWidth.toPx() * menuProgress - size.width * editorProgress
+                    }
                     .zIndex(1f)
             ) {
                 val fileManagerOpen = page == PcpPage.HOME && sandboxFileApp != null
@@ -178,10 +242,15 @@ fun PcpShell(
                             PcpPage.HOME -> SandboxPage(
                                 overlayEnabled = overlayEnabled,
                                 fileApp = sandboxFileApp,
-                                onFileAppChange = { sandboxFileApp = it }
+                                onFileAppChange = { sandboxFileApp = it },
+                                onEditText = ::openEditor,
+                                onToast = showToast
                             )
                             PcpPage.RTON -> rtonContent()
-                            PcpPage.SCRIPTS -> ScriptsPage()
+                            PcpPage.SCRIPTS -> ScriptsPage(
+                                onEditText = ::openEditor,
+                                onToast = showToast
+                            )
                         }
                     }
                 }
@@ -243,9 +312,55 @@ fun PcpShell(
                     },
                     onLanguageClick = { languageOpen = true },
                     onLanguageDismiss = { languageOpen = false },
-                    onLanguageChange = onLanguageChange
+                    onLanguageChange = { code ->
+                        if (code != lang) {
+                            onLanguageChange(code)
+                            restartNoticeOpen = true
+                        }
+                    }
                 )
             }
+
+            if (restartNoticeOpen) {
+                RestartRequiredDialog(
+                    onDismiss = { restartNoticeOpen = false }
+                )
+            }
+
+            AnimatedVisibility(
+                visible = editorVisible,
+                enter = slideInHorizontally(
+                    animationSpec = tween(280, easing = FastOutSlowInEasing),
+                    initialOffsetX = { it }
+                ),
+                exit = slideOutHorizontally(
+                    animationSpec = tween(280, easing = FastOutSlowInEasing),
+                    targetOffsetX = { it }
+                ),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(3f)
+            ) {
+                editorDocument?.let { document ->
+                    TextEditorPage(
+                        document = document,
+                        toastState = toastState,
+                        onClose = ::closeEditor
+                    )
+                }
+            }
+
+            if (editorLoading) {
+                EditorLoadingDialog()
+            }
+
+            PcpToastHost(
+                state = toastState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 24.dp, vertical = 24.dp)
+                    .zIndex(4f)
+            )
         }
     }
 }
@@ -261,7 +376,7 @@ private fun PcpTopBar(
     showBack: Boolean,
     onMenuClick: () -> Unit
 ) {
-    Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
+    Surface(color = colorResource(R.color.pcp_top_bar)) {
         Box(
             Modifier
                 .fillMaxWidth()
@@ -477,6 +592,7 @@ private fun SettingsPage(
                         lang = lang,
                         onClick = onLanguageClick
                     )
+                    OpenSourceRow()
                 }
                 Spacer(Modifier.height(18.dp))
             }
@@ -557,7 +673,7 @@ private fun OverlaySettingRow(
                 )
                 Text(
                     text = t("settings.floating_window_desc"),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -584,7 +700,7 @@ private fun OverlaySettingRow(
  */
 @Composable
 private fun SettingsTopBar(onBack: () -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
+    Surface(color = colorResource(R.color.pcp_top_bar)) {
         Box(
             Modifier
                 .fillMaxWidth()
@@ -673,6 +789,44 @@ private fun LanguageRow(lang: String, onClick: () -> Unit) {
 }
 
 /**
+ * @brief 显示项目开源地址并提供浏览器跳转。
+ */
+@Composable
+private fun OpenSourceRow() {
+    val context = LocalContext.current
+    val shape = RoundedCornerShape(14.dp)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .clickable {
+                runCatching {
+                    context.startActivity(
+                        Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse("https://github.com/Vacancyo/PCPToolKit")
+                        )
+                    )
+                }
+            }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(
+                text = t("settings.open_source"),
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp)
+            )
+            Text(
+                text = t("settings.open_source_value"),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+
+/**
  * @brief 显示语言选择对话框。
  * @param current 当前语言代码。
  * @param onSelect 语言选择回调。
@@ -749,6 +903,81 @@ private fun LanguagePicker(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * @brief 提示语言修改需要重启应用后生效。
+ * @param onDismiss 关闭回调。
+ */
+@Composable
+private fun RestartRequiredDialog(onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 520.dp),
+            shape = RoundedCornerShape(22.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 8.dp
+        ) {
+            Column {
+                Text(
+                    text = t("settings.restart_required_title"),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 18.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                HorizontalDivider()
+                Text(
+                    text = t("settings.restart_required_message"),
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                HorizontalDivider()
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(
+                            text = t("settings.restart_required_close"),
+                            color = Color(0xFF2563EB)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * @brief 显示文本文件加载提示。
+ */
+@Composable
+private fun EditorLoadingDialog() {
+    Dialog(onDismissRequest = {}) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 8.dp
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                Text(
+                    text = t("editor.loading"),
+                    style = MaterialTheme.typography.bodyLarge
+                )
             }
         }
     }

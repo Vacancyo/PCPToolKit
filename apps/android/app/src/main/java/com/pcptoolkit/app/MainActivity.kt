@@ -22,6 +22,7 @@ package com.pcptoolkit.app
 
 import android.content.SharedPreferences
 import android.content.pm.ActivityInfo
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -34,6 +35,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.edit
+import androidx.core.view.WindowCompat
 import com.pcptoolkit.app.core.native.NativeBridge
 import com.pcptoolkit.app.feature.rton.ConvertViewModel
 import com.pcptoolkit.app.feature.rton.RtonPage
@@ -51,6 +53,10 @@ class MainActivity : ComponentActivity() {
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = Color.TRANSPARENT
+        WindowCompat.getInsetsController(window, window.decorView)
+            .isAppearanceLightStatusBars = true
         val prefs = getSharedPreferences("settings", MODE_PRIVATE)
 
         // 语言文件在 assets/lang，读出后交给 C++ 注册；默认中文
@@ -116,10 +122,7 @@ fun Screen(vm: ConvertViewModel, prefs: SharedPreferences) {
             overlayEnabled = enabled
         },
         onLanguageChange = { code ->
-            if (NativeBridge.setLanguage(code)) {
-                prefs.edit { putString("lang", code) }
-                lang = code
-            }
+            prefs.edit { putString("lang", code) }
         }
     ) {
         RtonPage(vm)

@@ -58,6 +58,17 @@ data class SandboxFileContent(
     val truncated: Boolean
 )
 
+enum class SandboxImportConflictAction {
+    REPLACE,
+    SKIP,
+    KEEP_BOTH
+}
+
+data class SandboxImportCandidate(
+    val displayName: String,
+    val targetExists: Boolean
+)
+
 data class SandboxFileProperties(
     val name: String,
     val isDirectory: Boolean,
@@ -129,13 +140,13 @@ object SandboxFileRepository {
         }
     }
 
-    fun importFile(
+    fun inspectImport(
         context: Context,
         packageName: String,
         area: SandboxFileArea,
         directoryPath: String,
         source: Uri
-    ): SandboxFileEntry {
+    ): SandboxImportCandidate {
         val directory = resolve(packageName, area, directoryPath)
         require(directory.isDirectory) { "not_a_directory" }
         val displayName = queryDisplayName(context, source) ?: "imported_file"
@@ -143,7 +154,34 @@ object SandboxFileRepository {
         require(safeName.isNotBlank() && safeName != "." && safeName != "..") { "invalid_file_name" }
         val target = File(directory, safeName)
         ensureInside(resolveRoot(packageName, area), target)
-        require(!target.exists()) { "file_exists" }
+        return SandboxImportCandidate(
+            displayName = safeName,
+            targetExists = target.exists()
+        )
+    }
+
+    fun importFile(
+        context: Context,
+        packageName: String,
+        area: SandboxFileArea,
+        directoryPath: String,
+        source: Uri,
+        displayName: String,
+        conflictAction: SandboxImportConflictAction
+    ): SandboxFileEntry? {
+        val directory = resolve(packageName, area, directoryPath)
+        require(directory.isDirectory) { "not_a_directory" }
+        val safeName = displayName.substringAfterLast('/').substringAfterLast('\\')
+        require(safeName.isNotBlank() && safeName != "." && safeName != "..") { "invalid_file_name" }
+        var target = File(directory, safeName)
+        ensureInside(resolveRoot(packageName, area), target)
+        if (target.exists()) {
+            when (conflictAction) {
+                SandboxImportConflictAction.SKIP -> return null
+                SandboxImportConflictAction.REPLACE -> require(target.isFile) { "file_exists" }
+                SandboxImportConflictAction.KEEP_BOTH -> target = availableTarget(directory, safeName)
+            }
+        }
         stopPackageIfNeeded(packageName, area)
         copyUriToTarget(context, source, target)
         return SandboxFileEntry(
@@ -153,6 +191,19 @@ object SandboxFileRepository {
             size = target.length(),
             lastModified = target.lastModified()
         )
+    }
+
+    private fun availableTarget(directory: File, name: String): File {
+        val dot = name.lastIndexOf('.')
+        val base = if (dot > 0) name.substring(0, dot) else name
+        val extension = if (dot > 0) name.substring(dot) else ""
+        var index = 1
+        var candidate = File(directory, "$base ($index)$extension")
+        while (candidate.exists()) {
+            index++
+            candidate = File(directory, "$base ($index)$extension")
+        }
+        return candidate
     }
 
     fun createEntry(

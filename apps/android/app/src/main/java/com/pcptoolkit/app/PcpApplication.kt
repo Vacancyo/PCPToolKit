@@ -37,6 +37,8 @@ class PcpApplication : Application() {
                 base,
                 object : ClientConfiguration() {
                     override fun getHostPackageName(): String = base.packageName
+
+                    override fun getLogSenderChatId(): String? = null
                 }
             )
             BlackBoxCore.get().onAfterMainApplicationAttach(this, base)
