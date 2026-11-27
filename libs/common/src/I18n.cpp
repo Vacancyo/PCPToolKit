@@ -16,7 +16,7 @@
  * @file I18n.cpp
  * @brief 多语言文本支持实现。
  *
- * 该代码文件实现扁平 JSON 语言表解析、语言注册、语言切换以及带占位符的翻译文本格式化。
+ * 语言注册、语言切换、翻译查询的代码实现。
  */
 #include "common/I18n.h"
 
@@ -25,37 +25,42 @@
 #include <unordered_map>
 
 namespace pcp::i18n {
+
 namespace {
 
 using Table = std::unordered_map<std::string, std::string>;
 
 /**
- * @brief 已注册的全部语言。语言代码到文本表的映射。
+ * @brief 已注册的全部语言。即语言代码到文本表的映射。
  */
 std::map<std::string, Table>& registry() { static std::map<std::string, Table> r; return r; }
 
 /**
- * @brief 当前语言代码。
+ * @brief 获取当前语言代码。
  */
 std::string& current() { static std::string s = kDefaultLang; return s; }
 
 /**
- * @brief 仅支持字符串键对应字符串值的扁平 JSON 解析器。
+ * @brief 扁平 JSON 解析器。
  */
 class FlatJson {
 public:
     /**
      * @brief 构造扁平 JSON 解析器。
      * @param text 待解析文本。
+     *
+     * 这是一个超级简化版的 JSON 解析器。只支持字符串键对应字符串值。
      */
     explicit FlatJson(const std::string& text) : s_(text) {}
 
     /**
-     * @brief 解析整个文本到 out。格式不合法返回 false。
+     * @brief 解析整个文本到 <code>out</code>。
+     * @return 是否解析成功。格式不合法返回 <code>false</code>。
      */
     bool parse(Table& out) {
         if (s_.size() >= 3 && static_cast<std::uint8_t>(s_[0]) == 0xEF &&
-            static_cast<std::uint8_t>(s_[1]) == 0xBB && static_cast<std::uint8_t>(s_[2]) == 0xBF) p_ = 3;  // 跳过 BOM
+            static_cast<std::uint8_t>(s_[1]) == 0xBB &&
+            static_cast<std::uint8_t>(s_[2]) == 0xBF) p_ = 3;  // 跳过 BOM
         ws();
         if (!eat('{')) return false;
         while (true) {
@@ -74,23 +79,28 @@ public:
     }
 
 private:
-    const std::string& s_;  ///< 待解析文本
-    size_t p_ = 0;          ///< 当前位置
+    const std::string& s_;  ///< 待解析文本。
+    size_t p_ = 0;          ///< 当前位置。
 
     /**
      * @brief 跳过空白字符。
      */
-    void ws() { while (p_ < s_.size() && (s_[p_] == ' ' || s_[p_] == '\t' || s_[p_] == '\n' || s_[p_] == '\r')) p_++; }
+    void ws() {
+        while (p_ < s_.size() &&
+              (s_[p_] == ' ' || s_[p_] == '\t' || s_[p_] == '\n' || s_[p_] == '\r'))
+        p_++;
+    }
 
     /**
      * @brief 尝试消费一个指定字符。
      * @param c 期望字符。
-     * @return 消费成功返回 true。
+     * @return 消费成功返回 <code>true</code>。
      */
     bool eat(char c) { if (p_ < s_.size() && s_[p_] == c) { p_++; return true; } return false; }
 
     /**
-     * @brief 解析一个 JSON 字符串到 out。
+     * @brief 解析一个 JSON 字符串到 <code>out</code>。
+     * @return 是否解析成功。格式不合法返回 <code>false</code>。
      */
     bool str(std::string& out) {
         if (!eat('"')) return false;
@@ -100,8 +110,9 @@ private:
             if (c != '\\') { out += c; continue; }
             if (p_ >= s_.size()) return false;
             switch (s_[p_++]) {
-                case '"': out += '"'; break; case '\\': out += '\\'; break; case '/': out += '/'; break;
-                case 'b': out += '\b'; break; case 'f': out += '\f'; break; case 'n': out += '\n'; break;
+                case '"': out += '"'; break; case '\\': out += '\\'; break;
+                case '/': out += '/'; break; case 'b': out += '\b'; break;
+                case 'f': out += '\f'; break; case 'n': out += '\n'; break;
                 case 'r': out += '\r'; break; case 't': out += '\t'; break;
                 default: return false;
             }
@@ -111,7 +122,7 @@ private:
 };
 
 /**
- * @brief 把模板中的 {N} 替换为 args[N]；N 越界或格式不对则原样保留。
+ * @brief 把模板中 <code>{N}</code> 替换为 <code>args[N]</code>；<code>N</code> 越界或格式不对则原样保留。
  */
 std::string format(const std::string& tpl, const Args& args) {
     std::string o;
@@ -119,8 +130,12 @@ std::string format(const std::string& tpl, const Args& args) {
     for (size_t i = 0; i < tpl.size(); i++) {
         if (tpl[i] == '{') {
             size_t j = i + 1, idx = 0;
-            while (j < tpl.size() && tpl[j] >= '0' && tpl[j] <= '9' && j - i <= 6) { idx = idx * 10 + (tpl[j] - '0'); j++; }
-            if (j > i + 1 && j < tpl.size() && tpl[j] == '}' && idx < args.size()) { o += args[idx]; i = j; continue; }
+            while (j < tpl.size() && tpl[j] >= '0' && tpl[j] <= '9' && j - i <= 6) {
+                idx = idx * 10 + (tpl[j] - '0'); j++;
+            }
+            if (j > i + 1 && j < tpl.size() && tpl[j] == '}' && idx < args.size()) {
+                o += args[idx]; i = j; continue;
+            }
         }
         o += tpl[i];
     }
@@ -128,7 +143,7 @@ std::string format(const std::string& tpl, const Args& args) {
 }
 
 /**
- * @brief 在指定语言中查找键；语言未注册或没有该键返回 nullptr。
+ * @brief 在指定语言中查找键；语言未注册或没有该键返回 <code>nullptr</code>。
  */
 const std::string* find(const std::string& lang, const std::string& key) {
     auto l = registry().find(lang);

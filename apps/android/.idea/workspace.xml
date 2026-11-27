@@ -5,41 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="7dd309f2-e862-420c-abf6-1803e4d0c772" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../README.en-US.md" beforeDir="false" afterPath="$PROJECT_DIR$/../../README.en-US.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../README.zh-CN.md" beforeDir="false" afterPath="$PROJECT_DIR$/../../README.zh-CN.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/app/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/assets/lang/en_US.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/lang/en_US.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/assets/lang/zh_CN.json" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/assets/lang/zh_CN.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/MainActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/MainActivity.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/feature/home/HomePage.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/platform/overlay/FloatingWindowService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/platform/overlay/FloatingWindowService.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/ui/PcpShell.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/com/pcptoolkit/app/ui/PcpShell.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_launcher_background.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/drawable/ic_launcher_foreground.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-hdpi/ic_launcher.webp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-hdpi/ic_launcher_round.webp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-mdpi/ic_launcher.webp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-mdpi/ic_launcher_round.webp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xhdpi/ic_launcher.webp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xhdpi/ic_launcher_round.webp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xxhdpi/ic_launcher.webp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/values/colors.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/values/colors.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/values/strings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/values/strings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gradle/gradle-daemon-jvm.properties" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/gradle/libs.versions.toml" beforeDir="false" afterPath="$PROJECT_DIR$/gradle/libs.versions.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/settings.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/settings.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Bcore/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/Bcore/build.gradle" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/compiler/src/main/java/top/niunaijun/blackreflection/BlackReflectionProcessor.java" beforeDir="false" afterPath="$PROJECT_DIR$/compiler/src/main/java/top/niunaijun/blackreflection/BlackReflectionProcessor.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/common/include/common/FileIO.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/common/include/common/FileIO.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/common/include/common/I18n.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/common/include/common/I18n.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/common/src/I18n.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/common/src/I18n.cpp" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/include/rton/Converter.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/include/rton/Converter.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../libs/rton/src/Converter.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/src/Converter.cpp" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -49,7 +22,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[PhysicalDevice::serial=AJFF026910006870]" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[LocalEmulator::path=D:\Tools\Android\.android\.android\avd\Medium_Phone.avd]" />
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$">
       <ProjectState />
@@ -98,7 +71,7 @@
     &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;recommended.upgrade.last.time.stamp&quot;: &quot;1795690782766&quot;,
+    &quot;recommended.upgrade.last.time.stamp&quot;: &quot;1795785426573&quot;,
     &quot;settings.editor.selected.configurable&quot;: &quot;Errors&quot;
   }
 }</component>

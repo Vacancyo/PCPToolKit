@@ -16,7 +16,7 @@
  * @file Converter.cpp
  * @brief RTON 与 JSON 格式的转换实现。
  *
- * 该代码文件实现单个文件的 RTON 与 JSON 互转，并负责批量扫描输入目录、生成输出路径和报告转换进度。
+ * 对单个文件的 RTON 与 JSON 互转实现，以及批量扫描输入目录、生成输出路径、报告转换进度。
  */
 #include "rton/Converter.h"
 
@@ -39,8 +39,9 @@ namespace fs = std::filesystem;
 
 void rtonToJson(const std::string& in, const std::string& out, const std::string& key, bool hasKey) {
     pcp::common::Bytes data = pcp::common::readAll(in);
-    bool encrypted = isEncryptedRton(data);
+    bool encrypted = isEncryptedRton(data);  // 如果文件头是 10 00 就识别成受加密的文件
     if (encrypted) {
+        // 没密钥 报错
         if (!hasKey) throw std::runtime_error(pcp::i18n::translate("convert.need_key"));
         data = rtonDecrypt(data, key);
     }
@@ -115,9 +116,11 @@ void collect(const ConvertOptions& opt, std::vector<Task>& tasks, std::vector<Ta
         if (fs::is_directory(input, ec)) {
             std::vector<fs::path> files;
             if (opt.recursive) {
-                for (auto& e : fs::recursive_directory_iterator(input, ec)) if (e.is_regular_file()) files.push_back(e.path());
+                for (auto& e : fs::recursive_directory_iterator(input, ec))
+                    if (e.is_regular_file()) files.push_back(e.path());
             } else {
-                for (auto& e : fs::directory_iterator(input, ec)) if (e.is_regular_file()) files.push_back(e.path());
+                for (auto& e : fs::directory_iterator(input, ec))
+                    if (e.is_regular_file()) files.push_back(e.path());
             }
             std::sort(files.begin(), files.end());
             for (auto& f : files) {

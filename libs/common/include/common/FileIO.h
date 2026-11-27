@@ -32,7 +32,7 @@ namespace pcp::common {
  * @return 文件全部字节。
  * @throw std::runtime_error 当文件无法打开时抛出。
  *
- * 根据 \p path 读取文件，然后返回存储文件内容的数组。
+ * 根据 <code>path</code> 读取文件，然后返回存储文件内容的数组。
  */
 Bytes readAll(const std::string& path);
 
@@ -41,6 +41,7 @@ Bytes readAll(const std::string& path);
  * @param path 文件路径。
  * @param data 数据指针。
  * @param n 字节数。
+ * @throw std::runtime_error 当文件无法写入时抛出。
  */
 void writeAll(const std::string& path, const void* data, size_t n);
 
