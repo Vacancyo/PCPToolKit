@@ -27,6 +27,8 @@ import android.system.Os
 import android.system.OsConstants
 import java.io.File
 import java.io.IOException
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import java.util.Locale
 
 /**
@@ -211,23 +213,62 @@ object ScriptStore {
     }
 
     /**
+     * @brief 批量导出脚本，单项保持原文件，多项打包为 ZIP。
+     */
+    fun exportEntriesToUri(
+        context: Context,
+        entries: List<ScriptEntry>,
+        target: Uri
+    ) {
+        require(entries.isNotEmpty()) { "empty_selection" }
+        if (entries.size == 1) {
+            exportToUri(context, entries.first(), target)
+            return
+        }
+        val output = context.contentResolver.openOutputStream(target, "w")
+            ?: throw IOException("Cannot open export target")
+        output.use { destination ->
+            ZipOutputStream(destination).use { zip ->
+                entries.forEach { entry ->
+                    val source = resolve(context, entry)
+                    require(source.isFile) { "not_a_file" }
+                    zip.putNextEntry(ZipEntry(entry.name))
+                    source.inputStream().use { input ->
+                        input.copyTo(zip, BUFFER_SIZE)
+                    }
+                    zip.closeEntry()
+                }
+            }
+        }
+    }
+
+    /**
      * @brief 准备分享用的缓存副本。
      * @param context 应用上下文。
      * @param entry 脚本条目。
      * @return 可交给 FileProvider 的缓存文件。
      */
-    fun prepareShareFile(context: Context, entry: ScriptEntry): File {
-        val source = resolve(context, entry)
-        require(source.isFile) { "not_a_file" }
+    fun prepareShareFile(context: Context, entry: ScriptEntry): File =
+        prepareShareFiles(context, listOf(entry)).first()
+
+    /**
+     * @brief 准备批量分享用的缓存副本。
+     */
+    fun prepareShareFiles(context: Context, entries: List<ScriptEntry>): List<File> {
+        require(entries.isNotEmpty()) { "empty_selection" }
         val shareDirectory = File(context.cacheDir, "script-share").apply { mkdirs() }
         shareDirectory.listFiles()?.forEach { it.delete() }
-        val target = File(shareDirectory, entry.name)
-        source.inputStream().use { input ->
-            target.outputStream().use { output ->
-                input.copyTo(output, BUFFER_SIZE)
+        return entries.map { entry ->
+            val source = resolve(context, entry)
+            require(source.isFile) { "not_a_file" }
+            val target = File(shareDirectory, entry.name)
+            source.inputStream().use { input ->
+                target.outputStream().use { output ->
+                    input.copyTo(output, BUFFER_SIZE)
+                }
             }
+            target
         }
-        return target
     }
 
     /**

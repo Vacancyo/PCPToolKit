@@ -15,8 +15,10 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,12 +31,13 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -49,18 +52,33 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.pcptoolkit.app.feature.editor.TextEditorTarget
 import com.pcptoolkit.app.platform.overlay.FloatingWindowService
 import com.pcptoolkit.app.t
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private val SANDBOX_APK_MIME_TYPES = arrayOf(
+    "application/vnd.android.package-archive",
+    "application/x-apk",
+    "application/octet-stream"
+)
 
 /**
  * @brief 显示唯一沙箱游戏的主页仪表盘。
@@ -80,6 +98,7 @@ fun SandboxPage(
     var app by remember { mutableStateOf<SandboxApp?>(null) }
     var loading by remember { mutableStateOf(true) }
     var importing by remember { mutableStateOf(false) }
+    var updating by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf<String?>(null) }
     var statusIsError by remember { mutableStateOf(false) }
     var pendingUninstall by remember { mutableStateOf<SandboxApp?>(null) }
@@ -128,6 +147,26 @@ fun SandboxPage(
         }
     }
 
+    fun updateApk(uri: Uri) {
+        val target = app ?: return
+        if (!supported || importing || updating) return
+        updating = true
+        statusMessage = null
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                SandboxRepository.update(context, uri, target.packageName)
+            }
+            updating = false
+            statusIsError = !result.success
+            statusMessage = if (result.success) {
+                t("sandbox.update_success")
+            } else {
+                t("sandbox.update_failed") + ": " + describeInstallError(result)
+            }
+            if (result.success) loadInstalledApp()
+        }
+    }
+
     fun launchGame(target: SandboxApp) {
         statusMessage = null
         scope.launch {
@@ -168,6 +207,10 @@ fun SandboxPage(
     val apkPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
         onResult = { uri -> uri?.let(::importApk) }
+    )
+    val updatePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri -> uri?.let(::updateApk) }
     )
 
     LaunchedEffect(supported) {
@@ -274,29 +317,29 @@ fun SandboxPage(
             ) {
                 CircularProgressIndicator()
             }
-            shownApp == null -> EmptySandboxState(
+            else -> GameDashboard(
+                app = shownApp,
                 importing = importing,
                 onImport = {
                     if (app != null) {
-                        statusIsError = true
-                        statusMessage = t("sandbox.already_installed")
+                        onToast(t("sandbox.already_installed"), false)
                     } else {
-                        apkPicker.launch(
-                            arrayOf(
-                                "application/vnd.android.package-archive",
-                                "application/x-apk",
-                                "application/octet-stream"
-                            )
-                        )
+                        apkPicker.launch(SANDBOX_APK_MIME_TYPES)
                     }
                 },
-                modifier = Modifier.weight(1f)
-            )
-            else -> GameDashboard(
-                app = shownApp,
-                onLaunch = { launchGame(shownApp) },
-                onUninstall = { pendingUninstall = shownApp },
-                onFiles = { onFileAppChange(shownApp) },
+                onLaunch = { shownApp?.let(::launchGame) },
+                onUpdate = {
+                    if (shownApp != null) {
+                        updatePicker.launch(SANDBOX_APK_MIME_TYPES)
+                    }
+                },
+                onUninstall = {
+                    shownApp?.let { pendingUninstall = it }
+                },
+                onFiles = {
+                    shownApp?.let(onFileAppChange)
+                },
+                updating = updating,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -338,81 +381,15 @@ private fun UnsupportedState() {
 }
 
 @Composable
-private fun EmptySandboxState(
+private fun GameDashboard(
+    app: SandboxApp?,
     importing: Boolean,
     onImport: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(vertical = 28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .size(72.dp)
-                .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "APK",
-                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        Spacer(Modifier.height(22.dp))
-        Text(
-            text = t("sandbox.empty_title"),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(10.dp))
-        Text(
-            text = t("sandbox.empty_body"),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(24.dp))
-        Button(
-            onClick = onImport,
-            enabled = !importing,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            if (importing) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(22.dp),
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            } else {
-                Text(t("sandbox.import_apk"), fontWeight = FontWeight.SemiBold)
-            }
-        }
-        if (importing) {
-            Spacer(Modifier.height(14.dp))
-            Text(
-                text = t("sandbox.importing"),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-@Composable
-private fun GameDashboard(
-    app: SandboxApp,
     onLaunch: () -> Unit,
+    onUpdate: () -> Unit,
     onUninstall: () -> Unit,
     onFiles: () -> Unit,
+    updating: Boolean,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -426,85 +403,222 @@ private fun GameDashboard(
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val icon = app.icon
-            if (icon != null) {
-                Image(
-                    bitmap = icon.asImageBitmap(),
-                    contentDescription = app.label,
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(RoundedCornerShape(16.dp)),
-                    contentScale = ContentScale.Crop
-                )
+            if (app == null) {
+                EmptyGameIcon(onClick = onImport)
             } else {
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(16.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "APK",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold
+                val icon = app.icon
+                if (icon != null) {
+                    Image(
+                        bitmap = icon.asImageBitmap(),
+                        contentDescription = app.label,
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(RoundedCornerShape(16.dp)),
+                        contentScale = ContentScale.Crop
                     )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .background(
+                                MaterialTheme.colorScheme.surfaceVariant,
+                                RoundedCornerShape(16.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "APK",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = app.label,
+                    text = app?.label ?: t("sandbox.pending_import"),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2
                 )
-                app.versionName?.takeIf { it.isNotBlank() }?.let { version ->
-                    Text(
-                        text = t("sandbox.version") + " " + version,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1
-                    )
-                }
+                Text(
+                    text = t("sandbox.version") + " " +
+                        (app?.versionName?.takeIf { it.isNotBlank() } ?: "???"),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1
+                )
+            }
+            IconButton(
+                onClick = onFiles,
+                enabled = app != null,
+                modifier = Modifier
+                    .size(48.dp)
+                    .semantics {
+                        contentDescription = t("sandbox.file_manager")
+                    }
+            ) {
+                FolderIcon(
+                    if (app == null) {
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.28f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    }
+                )
             }
         }
 
         Spacer(Modifier.height(26.dp))
         Button(
-            onClick = onLaunch,
+            onClick = if (app == null) onImport else onLaunch,
+            enabled = if (app == null) !importing else true,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(58.dp),
             shape = RoundedCornerShape(8.dp)
         ) {
-            Text(
-                text = t("sandbox.launch"),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
+            if (app == null && importing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            } else {
+                Text(
+                    text = if (app == null) {
+                        t("sandbox.import_game")
+                    } else {
+                        t("sandbox.launch")
+                    },
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
         Spacer(Modifier.height(10.dp))
-        OutlinedButton(
-            onClick = onFiles,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            shape = RoundedCornerShape(8.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text(t("sandbox.file_manager"))
-        }
-        Spacer(Modifier.height(10.dp))
-        OutlinedButton(
-            onClick = onUninstall,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp),
-            shape = RoundedCornerShape(8.dp)
-        ) {
-            Text(t("sandbox.uninstall"))
+            Button(
+                onClick = onUpdate,
+                enabled = app != null && !updating,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF2DBE60),
+                    contentColor = Color.White,
+                    disabledContainerColor = Color(0xFFCDEFD8),
+                    disabledContentColor = Color(0xFF6D8A73)
+                )
+            ) {
+                if (updating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.White,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(t("sandbox.update"))
+                }
+            }
+            Button(
+                onClick = onUninstall,
+                enabled = app != null && !updating,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFE5484D),
+                    contentColor = Color.White,
+                    disabledContainerColor = Color(0xFFF8D0D2),
+                    disabledContentColor = Color(0xFF8E6C6E)
+                )
+            ) {
+                Text(t("sandbox.uninstall"))
+            }
         }
 
+        Text(
+            text = t("sandbox.dashboard_notice"),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Start
+        )
         Spacer(Modifier.height(18.dp))
+    }
+}
+
+@Composable
+private fun EmptyGameIcon(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(72.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .semantics {
+                contentDescription = t("sandbox.import_game")
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val stroke = 1.5.dp.toPx()
+            val inset = stroke
+            val color = Color(0xFF9AA0A6)
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(inset, inset),
+                size = Size(size.width - inset * 2f, size.height - inset * 2f),
+                cornerRadius = CornerRadius(16.dp.toPx()),
+                style = Stroke(
+                    width = stroke,
+                    pathEffect = PathEffect.dashPathEffect(
+                        floatArrayOf(7.dp.toPx(), 5.dp.toPx())
+                    )
+                )
+            )
+            drawLine(
+                color = color,
+                start = Offset(size.width * 0.5f, size.height * 0.32f),
+                end = Offset(size.width * 0.5f, size.height * 0.68f),
+                strokeWidth = stroke,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round
+            )
+            drawLine(
+                color = color,
+                start = Offset(size.width * 0.32f, size.height * 0.5f),
+                end = Offset(size.width * 0.68f, size.height * 0.5f),
+                strokeWidth = stroke,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round
+            )
+        }
+    }
+}
+
+@Composable
+private fun FolderIcon(color: Color) {
+    Canvas(Modifier.size(24.dp)) {
+        val stroke = 1.8.dp.toPx()
+        val path = Path().apply {
+            moveTo(size.width * 0.1f, size.height * 0.3f)
+            lineTo(size.width * 0.4f, size.height * 0.3f)
+            lineTo(size.width * 0.5f, size.height * 0.42f)
+            lineTo(size.width * 0.9f, size.height * 0.42f)
+            lineTo(size.width * 0.9f, size.height * 0.82f)
+            lineTo(size.width * 0.1f, size.height * 0.82f)
+            close()
+        }
+        drawPath(
+            path = path,
+            color = color,
+            style = Stroke(width = stroke)
+        )
     }
 }
 
@@ -514,6 +628,12 @@ private fun describeInstallError(result: SandboxInstallResult): String {
     }
     if (result.message == "already_installed") {
         return t("sandbox.already_installed")
+    }
+    if (result.message == "not_installed") {
+        return t("sandbox.app_not_installed")
+    }
+    if (result.message == "package_mismatch") {
+        return t("sandbox.package_mismatch")
     }
     return result.message?.takeIf { it.isNotBlank() } ?: t("sandbox.unknown_error")
 }

@@ -84,6 +84,17 @@ public class BActivityManager extends BlackManager<IBActivityManagerService> {
         }
     }
 
+    public void setGameSpeed(float speed) {
+        try {
+            IBActivityManagerService service = getService();
+            if (service != null) {
+                service.setGameSpeed(speed);
+            }
+        } catch (RemoteException e) {
+            Slog.e(TAG, "setGameSpeed failed", e);
+        }
+    }
+
     public void startActivity(Intent intent, int userId) {
         int retryCount = 0;
         final int maxRetries = 3;

@@ -20,15 +20,14 @@
  */
 package com.pcptoolkit.app.feature.script
 
+import android.content.Context
 import android.content.Intent
-import android.webkit.MimeTypeMap
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,9 +46,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -86,11 +83,16 @@ import androidx.compose.ui.window.Dialog
 import com.pcptoolkit.app.feature.editor.ScriptTextEditorTarget
 import com.pcptoolkit.app.feature.editor.TextEditorTarget
 import com.pcptoolkit.app.t
+import com.pcptoolkit.app.ui.PcpBatchDeleteDialog
+import com.pcptoolkit.app.ui.PcpCategoryTabs
+import com.pcptoolkit.app.ui.PcpSelectableFileRow
+import com.pcptoolkit.app.ui.PcpSelectionToolBar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.niunaijun.blackbox.fake.provider.FileProvider as BlackBoxFileProvider
 import java.text.SimpleDateFormat
+import java.util.ArrayList
 import java.util.Date
 import java.util.Locale
 
@@ -123,16 +125,46 @@ internal fun ScriptsPage(
     var refreshing by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var pendingAction by remember { mutableStateOf<ScriptEntry?>(null) }
-    var pendingDelete by remember { mutableStateOf<ScriptEntry?>(null) }
+    var pendingDelete by remember { mutableStateOf<List<ScriptEntry>?>(null) }
+    var deleteBatchMode by remember { mutableStateOf(false) }
     var pendingRename by remember { mutableStateOf<ScriptEntry?>(null) }
     var renameName by remember { mutableStateOf("") }
-    var pendingExport by remember { mutableStateOf<ScriptEntry?>(null) }
+    var pendingExport by remember { mutableStateOf<List<ScriptEntry>?>(null) }
     var pendingProperties by remember { mutableStateOf<ScriptProperties?>(null) }
+    var selectedPaths by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var selectionAnchor by remember { mutableStateOf<String?>(null) }
+    val bookmarkPrefs = remember(context) {
+        context.getSharedPreferences("script_bookmarks", Context.MODE_PRIVATE)
+    }
+    var bookmarkedPaths by remember { mutableStateOf<Set<String>>(emptySet()) }
     fun reportFailure(action: String, error: Throwable) {
         onToast(
             "$action: ${error.message ?: error.javaClass.simpleName}",
             true
         )
+    }
+
+    fun clearSelection() {
+        selectedPaths = emptySet()
+        selectionAnchor = null
+    }
+
+    fun bookmarkKey(): String = context.packageName
+
+    fun bookmarksForCurrentDirectory(): Set<String> =
+        bookmarkPrefs.getStringSet(bookmarkKey(), emptySet())
+            .orEmpty()
+            .toSet()
+
+    fun toggleBookmark(entry: ScriptEntry) {
+        val current = bookmarksForCurrentDirectory()
+        val next = if (entry.name in current) {
+            current - entry.name
+        } else {
+            current + entry.name
+        }
+        bookmarkPrefs.edit().putStringSet(bookmarkKey(), next).apply()
+        bookmarkedPaths = next
     }
 
     fun reload(showRefreshIndicator: Boolean = false) {
@@ -149,9 +181,24 @@ internal fun ScriptsPage(
             refreshing = false
             if (result == null) {
                 scripts = emptyList()
+                bookmarkedPaths = emptySet()
+                clearSelection()
                 onToast(t("scripts.read_failed"), true)
             } else {
-                scripts = result
+                val validNames = result.mapTo(mutableSetOf()) { it.name }
+                val marked = bookmarksForCurrentDirectory().intersect(validNames)
+                if (marked != bookmarksForCurrentDirectory()) {
+                    bookmarkPrefs.edit()
+                        .putStringSet(bookmarkKey(), marked)
+                        .apply()
+                }
+                scripts = result.sortedWith(
+                    compareByDescending<ScriptEntry> { it.name in marked }
+                        .thenBy { it.name.lowercase(Locale.ROOT) }
+                )
+                bookmarkedPaths = marked
+                selectedPaths = selectedPaths.intersect(validNames)
+                if (selectedPaths.isEmpty()) selectionAnchor = null
             }
         }
     }
@@ -172,16 +219,21 @@ internal fun ScriptsPage(
         }
     }
 
-    fun deleteEntry(entry: ScriptEntry) {
+    fun deleteEntries(entries: List<ScriptEntry>) {
         busy = true
         scope.launch {
             val result = withContext(Dispatchers.IO) {
-                runCatching { ScriptStore.delete(context, entry) }
+                runCatching {
+                    entries.forEach { ScriptStore.delete(context, it) }
+                }
             }
             busy = false
             result.onSuccess {
+                clearSelection()
                 reload()
             }.onFailure {
+                clearSelection()
+                reload()
                 reportFailure(t("scripts.delete_failed"), it)
             }
         }
@@ -221,28 +273,34 @@ internal fun ScriptsPage(
         }
     }
 
-    fun shareEntry(entry: ScriptEntry) {
+    fun shareEntries(entries: List<ScriptEntry>) {
         busy = true
         scope.launch {
             val result = withContext(Dispatchers.IO) {
-                runCatching { ScriptStore.prepareShareFile(context, entry) }
+                runCatching { ScriptStore.prepareShareFiles(context, entries) }
             }
             busy = false
-            result.onSuccess { file ->
+            result.onSuccess { files ->
                 runCatching {
                     val authority = context.packageName + ".blackbox.FileProvider"
-                    val uri = BlackBoxFileProvider.getUriForFile(context, authority, file)
-                    val mime = MimeTypeMap.getSingleton()
-                        .getMimeTypeFromExtension(file.extension.lowercase(Locale.ROOT))
-                        ?: "application/octet-stream"
-                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                        type = mime
-                        putExtra(Intent.EXTRA_STREAM, uri)
+                    val uris = files.mapTo(ArrayList()) { file ->
+                        BlackBoxFileProvider.getUriForFile(context, authority, file)
+                    }
+                    val sendIntent = Intent(
+                        if (uris.size == 1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE
+                    ).apply {
+                        type = "*/*"
+                        if (uris.size == 1) {
+                            putExtra(Intent.EXTRA_STREAM, uris.first())
+                        } else {
+                            putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                        }
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
                     context.startActivity(
                         Intent.createChooser(sendIntent, t("scripts.share"))
                     )
+                    clearSelection()
                 }.onFailure {
                     reportFailure(t("scripts.share_failed"), it)
                 }
@@ -281,14 +339,53 @@ internal fun ScriptsPage(
             busy = true
             scope.launch {
                 val result = withContext(Dispatchers.IO) {
-                    runCatching { ScriptStore.exportToUri(context, target, uri) }
+                    runCatching {
+                        ScriptStore.exportEntriesToUri(context, target, uri)
+                    }
                 }
                 busy = false
-                result.onFailure {
+                result.onSuccess {
+                    clearSelection()
+                }.onFailure {
                     reportFailure(t("scripts.export_failed"), it)
                 }
             }
         }
+    }
+
+    fun selectBySwipe(entry: ScriptEntry) {
+        if (entry.name in selectedPaths) return
+        val anchor = selectionAnchor
+        val targetIndex = scripts.indexOfFirst { it.name == entry.name }
+        val anchorIndex = scripts.indexOfFirst { it.name == anchor }
+        if (anchor != null && anchorIndex >= 0 && targetIndex >= 0) {
+            val first = minOf(anchorIndex, targetIndex)
+            val last = maxOf(anchorIndex, targetIndex)
+            selectedPaths = selectedPaths + scripts
+                .subList(first, last + 1)
+                .map { it.name }
+            selectionAnchor = null
+        } else {
+            selectedPaths = selectedPaths + entry.name
+            selectionAnchor = entry.name
+        }
+    }
+
+    fun handleScriptClick(entry: ScriptEntry) {
+        if (selectedPaths.isNotEmpty()) {
+            selectedPaths = if (entry.name in selectedPaths) {
+                selectedPaths - entry.name
+            } else {
+                selectedPaths + entry.name
+            }
+            selectionAnchor = entry.name.takeIf { entry.name in selectedPaths }
+        } else {
+            onEditText(ScriptTextEditorTarget(entry))
+        }
+    }
+
+    BackHandler(enabled = selectedPaths.isNotEmpty()) {
+        clearSelection()
     }
 
     LaunchedEffect(Unit) {
@@ -296,53 +393,65 @@ internal fun ScriptsPage(
     }
 
     pendingAction?.let { entry ->
+        val actionEntries = if (selectedPaths.isNotEmpty() &&
+            entry.name in selectedPaths
+        ) {
+            scripts.filter { it.name in selectedPaths }
+        } else {
+            listOf(entry)
+        }
         ScriptActionDialog(
-            entry = entry,
+            entries = actionEntries,
+            batchMode = selectedPaths.isNotEmpty(),
             onDelete = {
                 pendingAction = null
-                pendingDelete = entry
+                deleteBatchMode = selectedPaths.isNotEmpty()
+                pendingDelete = actionEntries
             },
             onProperties = {
-                pendingAction = null
-                showProperties(entry)
+                if (actionEntries.size == 1 && selectedPaths.isEmpty()) {
+                    pendingAction = null
+                    showProperties(actionEntries.first())
+                }
             },
             onExport = {
                 pendingAction = null
-                pendingExport = entry
-                exportLauncher.launch(entry.name)
+                pendingExport = actionEntries
+                exportLauncher.launch(
+                    if (actionEntries.size > 1) {
+                        "PCP-scripts.zip"
+                    } else {
+                        actionEntries.first().name
+                    }
+                )
             },
             onRename = {
-                pendingAction = null
-                pendingRename = entry
-                renameName = entry.name
+                if (actionEntries.size == 1 && selectedPaths.isEmpty()) {
+                    pendingAction = null
+                    pendingRename = actionEntries.first()
+                    renameName = actionEntries.first().name
+                }
             },
             onShare = {
                 pendingAction = null
-                shareEntry(entry)
+                shareEntries(actionEntries)
             },
             onDismiss = { pendingAction = null }
         )
     }
 
-    pendingDelete?.let { entry ->
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text(t("scripts.delete_title")) },
-            text = { Text(entry.name) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingDelete = null
-                        deleteEntry(entry)
-                    }
-                ) {
-                    Text(t("scripts.delete"))
-                }
+    pendingDelete?.let { entries ->
+        DeleteScriptsDialog(
+            entries = entries,
+            batchMode = deleteBatchMode,
+            onConfirm = {
+                pendingDelete = null
+                deleteBatchMode = false
+                deleteEntries(entries)
             },
-            dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) {
-                    Text(t("common.cancel"))
-                }
+            onDismiss = {
+                pendingDelete = null
+                deleteBatchMode = false
             }
         )
     }
@@ -374,97 +483,129 @@ internal fun ScriptsPage(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp)
         ) {
             Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(
-                    space = 14.dp,
-                    alignment = Alignment.CenterHorizontally
-                ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                ScriptSection.entries.forEach { candidate ->
-                    FilterChip(
-                        selected = candidate == section,
-                        onClick = { section = candidate },
-                        label = { Text(t(candidate.titleKey)) }
-                    )
+            PcpCategoryTabs(
+                labels = ScriptSection.entries.map { t(it.titleKey) },
+                selectedIndex = section.ordinal,
+                onSelect = {
+                    clearSelection()
+                    section = ScriptSection.entries[it]
                 }
-            }
+            )
 
-            if (busy) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                    Text(t("scripts.working"))
-                }
-            }
-
-            PullToRefreshBox(
-                isRefreshing = refreshing,
-                onRefresh = { reload(showRefreshIndicator = true) },
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
             ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 76.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                if (busy) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                        Text(t("scripts.working"))
+                    }
+                }
+
+                PullToRefreshBox(
+                    isRefreshing = refreshing,
+                    onRefresh = { reload(showRefreshIndicator = true) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
                 ) {
-                    when {
-                        loading -> item {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(180.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator()
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 76.dp)
+                    ) {
+                        when {
+                            loading -> item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(180.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator()
+                                }
+                            }
+                            section == ScriptSection.LIST && scripts.isEmpty() -> item {
+                                EmptyScriptsMessage(t("scripts.no_scripts"))
+                            }
+                            section == ScriptSection.PRESETS && presets.isEmpty() -> item {
+                                EmptyScriptsMessage(t("scripts.no_presets"))
+                            }
+                            section == ScriptSection.LIST -> items(scripts, key = { it.name }) { entry ->
+                                PcpSelectableFileRow(
+                                    itemKey = entry.name,
+                                    bookmarked = entry.name in bookmarkedPaths,
+                                    selected = entry.name in selectedPaths,
+                                    selectionMode = selectedPaths.isNotEmpty(),
+                                    onOpen = { handleScriptClick(entry) },
+                                    onLongPress = if (selectedPaths.isEmpty() ||
+                                        entry.name in selectedPaths
+                                    ) {
+                                        { pendingAction = entry }
+                                    } else {
+                                        null
+                                    },
+                                    onSelect = { selectBySwipe(entry) },
+                                    onBookmark = { toggleBookmark(entry) }
+                                ) {
+                                    ScriptEntryIcon()
+                                    Spacer(Modifier.width(12.dp))
+                                    ScriptEntryInfo(
+                                        entry = entry,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                            else -> items(presets, key = { it }) { name ->
+                                PresetRow(
+                                    name = name,
+                                    enabled = !busy,
+                                    onAdd = { addPreset(name) }
+                                )
                             }
                         }
-                        section == ScriptSection.LIST && scripts.isEmpty() -> item {
-                            EmptyScriptsMessage(t("scripts.no_scripts"))
-                        }
-                        section == ScriptSection.PRESETS && presets.isEmpty() -> item {
-                            EmptyScriptsMessage(t("scripts.no_presets"))
-                        }
-                        section == ScriptSection.LIST -> items(scripts, key = { it.name }) { entry ->
-                            ScriptRow(
-                                entry = entry,
-                                onOpen = {
-                                    onEditText(ScriptTextEditorTarget(entry))
-                                },
-                                onLongPress = { pendingAction = entry }
-                            )
-                        }
-                        else -> items(presets, key = { it }) { name ->
-                            PresetRow(
-                                name = name,
-                                enabled = !busy,
-                                onAdd = { addPreset(name) }
-                            )
-                        }
+                        item { Spacer(Modifier.height(8.dp)) }
                     }
-                    item { Spacer(Modifier.height(8.dp)) }
                 }
             }
         }
 
-        ScriptToolBar(
-            enabled = !busy,
-            onAdd = { importLauncher.launch(arrayOf("*/*")) },
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-        )
+        if (selectedPaths.isEmpty()) {
+            ScriptToolBar(
+                enabled = !busy,
+                onAdd = { importLauncher.launch(arrayOf("*/*")) },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+            )
+        } else {
+            PcpSelectionToolBar(
+                enabled = !busy,
+                onSelectAll = {
+                    selectedPaths = scripts.mapTo(mutableSetOf()) { it.name }
+                    selectionAnchor = null
+                },
+                onClear = ::clearSelection,
+                onInvert = {
+                    selectedPaths = scripts
+                        .mapTo(mutableSetOf()) { it.name }
+                        .minus(selectedPaths)
+                    selectionAnchor = null
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+            )
+        }
     }
 }
 
@@ -483,53 +624,37 @@ private fun EmptyScriptsMessage(text: String) {
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ScriptRow(
+private fun ScriptEntryInfo(
     entry: ScriptEntry,
-    onOpen: () -> Unit,
-    onLongPress: () -> Unit
+    modifier: Modifier = Modifier
 ) {
     val modifiedTime = remember(entry.lastModified) {
         formatModifiedTime(entry.lastModified)
     }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(72.dp)
-            .combinedClickable(
-                onClick = onOpen,
-                onLongClick = onLongPress
-            )
-            .padding(start = 10.dp, end = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        ScriptEntryIcon()
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
+    Column(modifier = modifier) {
+        Text(
+            text = entry.name,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.height(3.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = entry.name,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                text = modifiedTime,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
             )
-            Spacer(Modifier.height(3.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = modifiedTime,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = formatFileSize(entry.size),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
-            }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = formatFileSize(entry.size),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
+            )
         }
     }
 }
@@ -651,7 +776,8 @@ private fun ScriptToolBar(
 
 @Composable
 private fun ScriptActionDialog(
-    entry: ScriptEntry,
+    entries: List<ScriptEntry>,
+    batchMode: Boolean,
     onDelete: () -> Unit,
     onProperties: () -> Unit,
     onExport: () -> Unit,
@@ -659,6 +785,18 @@ private fun ScriptActionDialog(
     onShare: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val primary = entries.first()
+    val heading = if (entries.size > 1) {
+        String.format(
+            Locale.getDefault(),
+            t("scripts.multi_item_name"),
+            primary.name,
+            entries.size - 1
+        )
+    } else {
+        primary.name
+    }
+    val singleEditable = entries.size == 1 && !batchMode
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier
@@ -670,7 +808,7 @@ private fun ScriptActionDialog(
         ) {
             Column {
                 Text(
-                    text = entry.name,
+                    text = heading,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
@@ -689,7 +827,8 @@ private fun ScriptActionDialog(
                         ScriptActionItem(
                             icon = ScriptActionIcon.PROPERTIES,
                             text = t("scripts.properties"),
-                            onClick = onProperties
+                            onClick = onProperties,
+                            enabled = singleEditable
                         )
                         ScriptActionItem(
                             icon = ScriptActionIcon.EXPORT,
@@ -697,17 +836,12 @@ private fun ScriptActionDialog(
                             onClick = onExport
                         )
                     }
-                    Box(
-                        modifier = Modifier
-                            .width(1.dp)
-                            .fillMaxHeight()
-                            .background(MaterialTheme.colorScheme.outlineVariant)
-                    )
                     Column(modifier = Modifier.weight(1f)) {
                         ScriptActionItem(
                             icon = ScriptActionIcon.RENAME,
                             text = t("scripts.rename"),
-                            onClick = onRename
+                            onClick = onRename,
+                            enabled = singleEditable
                         )
                         ScriptActionItem(
                             icon = ScriptActionIcon.SHARE,
@@ -726,17 +860,18 @@ private fun ScriptActionItem(
     icon: ScriptActionIcon,
     text: String,
     onClick: () -> Unit,
+    enabled: Boolean = true,
     isDestructive: Boolean = false
 ) {
-    val color = if (isDestructive) {
-        MaterialTheme.colorScheme.error
-    } else {
-        MaterialTheme.colorScheme.onSurface
+    val color = when {
+        !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+        isDestructive -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.onSurface
     }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 16.dp)
             .height(56.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -900,6 +1035,41 @@ private enum class ScriptActionIcon {
     EXPORT,
     RENAME,
     SHARE
+}
+
+@Composable
+private fun DeleteScriptsDialog(
+    entries: List<ScriptEntry>,
+    batchMode: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val title = if (batchMode) {
+        String.format(
+            Locale.getDefault(),
+            t("scripts.delete_many_title"),
+            entries.size
+        )
+    } else {
+        t("scripts.delete_title")
+    }
+    val displayName = entries.first().name
+    val remainingLabel = if (entries.size > 1) {
+        String.format(
+            Locale.getDefault(),
+            t("scripts.and_other_items"),
+            entries.size - 1
+        )
+    } else null
+    PcpBatchDeleteDialog(
+        title = title,
+        displayName = displayName,
+        remainingLabel = remainingLabel,
+        warning = t("scripts.delete_warning"),
+        confirmLabel = t("scripts.delete"),
+        onConfirm = onConfirm,
+        onDismiss = onDismiss
+    )
 }
 
 @Composable

@@ -46,6 +46,21 @@ public class BProcessManagerService implements ISystemService {
         return sBProcessManagerService;
     }
 
+    public void setGameSpeed(float speed) {
+        synchronized (mProcessLock) {
+            for (ProcessRecord record : mPidsSelfLocked) {
+                if (record.bActivityThread == null) {
+                    continue;
+                }
+                try {
+                    record.bActivityThread.setGameSpeed(speed);
+                } catch (RemoteException e) {
+                    Slog.w(TAG, "Unable to set speed for " + record.processName, e);
+                }
+            }
+        }
+    }
+
     public ProcessRecord startProcessLocked(String packageName, String processName, int userId, int bpid, int callingPid) {
         ApplicationInfo info = BPackageManagerService.get().getApplicationInfo(packageName, 0, userId);
         if (info == null)

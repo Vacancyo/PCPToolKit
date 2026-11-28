@@ -4,16 +4,7 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="7dd309f2-e862-420c-abf6-1803e4d0c772" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Bcore/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/Bcore/build.gradle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/compiler/src/main/java/top/niunaijun/blackreflection/BlackReflectionProcessor.java" beforeDir="false" afterPath="$PROJECT_DIR$/compiler/src/main/java/top/niunaijun/blackreflection/BlackReflectionProcessor.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../libs/common/include/common/FileIO.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/common/include/common/FileIO.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../libs/common/include/common/I18n.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/common/include/common/I18n.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../libs/common/src/I18n.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/common/src/I18n.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../libs/rton/include/rton/Converter.h" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/include/rton/Converter.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../../libs/rton/src/Converter.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../../libs/rton/src/Converter.cpp" afterDir="false" />
-    </list>
+    <list default="true" id="7dd309f2-e862-420c-abf6-1803e4d0c772" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -22,7 +13,7 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[LocalEmulator::path=D:\Tools\Android\.android\.android\avd\Medium_Phone.avd]" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[PhysicalDevice::serial=AJFF026910006870]" />
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$">
       <ProjectState />

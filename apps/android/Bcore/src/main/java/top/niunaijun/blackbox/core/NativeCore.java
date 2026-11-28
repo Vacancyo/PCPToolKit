@@ -48,6 +48,8 @@ public class NativeCore {
             String serial
     );
 
+    public static native void setGameSpeed(float speed);
+
 
     @Keep
     public static int getCallingUid(int origCallingUid) {

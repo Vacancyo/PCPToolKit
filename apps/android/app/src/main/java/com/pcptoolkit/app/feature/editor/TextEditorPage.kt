@@ -16,10 +16,13 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +30,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -45,7 +49,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,15 +67,22 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -81,9 +94,11 @@ import com.pcptoolkit.app.t
 import com.pcptoolkit.app.ui.PcpToastState
 import com.pcptoolkit.app.R
 import java.io.IOException
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.roundToInt
 
 /**
  * @brief 可被全局文本编辑器打开的文件目标。
@@ -166,8 +181,33 @@ fun TextEditorPage(
     val redoStack = remember(document) { mutableStateListOf<EditorSnapshot>() }
     var saving by remember { mutableStateOf(false) }
     var showCloseConfirmation by remember { mutableStateOf(false) }
+    var searchVisible by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var replaceQuery by remember { mutableStateOf("") }
+    var caseSensitive by remember { mutableStateOf(false) }
+    var wholeWord by remember { mutableStateOf(false) }
+    var activeMatch by remember { mutableIntStateOf(-1) }
+    var scrollSelectionRequest by remember { mutableIntStateOf(0) }
+    val searchFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     val modified = value.text != savedText
+    val matches = remember(value.text, searchQuery, caseSensitive, wholeWord) {
+        findTextMatches(value.text, searchQuery, caseSensitive, wholeWord)
+    }
+
+    LaunchedEffect(value.text, searchQuery, caseSensitive, wholeWord) {
+        activeMatch = -1
+    }
+
+    LaunchedEffect(searchVisible) {
+        if (searchVisible) {
+            searchFocusRequester.requestFocus()
+            keyboardController?.show()
+        } else {
+            keyboardController?.hide()
+        }
+    }
 
     fun showToast(text: String, isError: Boolean = false) {
         scope.launch { toastState.show(text, isError) }
@@ -202,7 +242,62 @@ fun TextEditorPage(
         }
     }
 
-    BackHandler(onBack = ::requestClose)
+    fun selectMatch(index: Int) {
+        if (matches.isEmpty()) return
+        val normalized = ((index % matches.size) + matches.size) % matches.size
+        activeMatch = normalized
+        value = value.copy(
+            selection = matches[normalized],
+            composition = null
+        )
+        scrollSelectionRequest++
+    }
+
+    fun replaceCurrentMatch() {
+        val index = activeMatch
+        if (index !in matches.indices || value.selection != matches[index]) {
+            selectMatch(0)
+            return
+        }
+        val match = matches[index]
+        undoStack.add(EditorSnapshot(value))
+        redoStack.clear()
+        val nextText = value.text.replaceRange(match.start, match.end, replaceQuery)
+        value = TextFieldValue(
+            text = nextText,
+            selection = TextRange(match.start + replaceQuery.length)
+        )
+        activeMatch = -1
+    }
+
+    fun replaceAllMatches() {
+        if (matches.isEmpty()) return
+        undoStack.add(EditorSnapshot(value))
+        redoStack.clear()
+        val nextText = buildString {
+            var cursor = 0
+            matches.forEach { match ->
+                append(value.text, cursor, match.start)
+                append(replaceQuery)
+                cursor = match.end
+            }
+            append(value.text, cursor, value.text.length)
+        }
+        value = TextFieldValue(
+            text = nextText,
+            selection = TextRange(matches.first().start + replaceQuery.length)
+        )
+        activeMatch = -1
+    }
+
+    BackHandler {
+        if (searchVisible) {
+            searchVisible = false
+            activeMatch = -1
+        } else {
+            requestClose()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -225,7 +320,10 @@ fun TextEditorPage(
                 }
             },
             onSave = { save() },
-            onSearch = {},
+            onSearch = {
+                searchVisible = !searchVisible
+                if (!searchVisible) activeMatch = -1
+            },
             onClose = ::requestClose
         )
         EditorInfoBar(
@@ -242,8 +340,34 @@ fun TextEditorPage(
                 }
                 value = next
             },
+            scrollSelectionRequest = scrollSelectionRequest,
             modifier = Modifier.weight(1f)
         )
+        if (searchVisible) {
+            EditorSearchPanel(
+                query = searchQuery,
+                replacement = replaceQuery,
+                currentMatch = activeMatch,
+                matchCount = matches.size,
+                caseSensitive = caseSensitive,
+                wholeWord = wholeWord,
+                onQueryChange = { searchQuery = it },
+                onReplacementChange = { replaceQuery = it },
+                onToggleCaseSensitive = { caseSensitive = !caseSensitive },
+                onToggleWholeWord = { wholeWord = !wholeWord },
+                onPrevious = {
+                    selectMatch(if (activeMatch < 0) matches.lastIndex else activeMatch - 1)
+                },
+                onNext = { selectMatch(if (activeMatch < 0) 0 else activeMatch + 1) },
+                onReplace = ::replaceCurrentMatch,
+                onReplaceAll = ::replaceAllMatches,
+                searchFocusRequester = searchFocusRequester,
+                onClose = {
+                    searchVisible = false
+                    activeMatch = -1
+                }
+            )
+        }
     }
 
     if (saving) {
@@ -356,14 +480,250 @@ private fun EditorInfoBar(
 }
 
 @Composable
+private fun EditorSearchPanel(
+    query: String,
+    replacement: String,
+    currentMatch: Int,
+    matchCount: Int,
+    caseSensitive: Boolean,
+    wholeWord: Boolean,
+    onQueryChange: (String) -> Unit,
+    onReplacementChange: (String) -> Unit,
+    onToggleCaseSensitive: () -> Unit,
+    onToggleWholeWord: () -> Unit,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onReplace: () -> Unit,
+    onReplaceAll: () -> Unit,
+    searchFocusRequester: FocusRequester,
+    onClose: () -> Unit
+) {
+    val blue = Color(0xFF2563EB)
+    val disabledBlue = blue.copy(alpha = 0.35f)
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .imePadding(),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 4.dp
+    ) {
+        Column(Modifier.fillMaxWidth()) {
+            HorizontalDivider()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(34.dp)
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = String.format(
+                        Locale.getDefault(),
+                        t("editor.search_results"),
+                        if (currentMatch >= 0) currentMatch + 1 else 0,
+                        matchCount
+                    ),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(
+                    onClick = onToggleCaseSensitive,
+                    modifier = Modifier.semantics {
+                        contentDescription = t("editor.case_sensitive")
+                    }
+                ) {
+                    Text(
+                        text = "Aa",
+                        color = if (caseSensitive) blue else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                TextButton(
+                    onClick = onToggleWholeWord,
+                    modifier = Modifier.semantics {
+                        contentDescription = t("editor.whole_word")
+                    }
+                ) {
+                    Text(
+                        text = "W",
+                        color = if (wholeWord) blue else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+            SearchInputRow(
+                label = t("editor.find"),
+                value = query,
+                onValueChange = onQueryChange,
+                focusRequester = searchFocusRequester
+            )
+            SearchInputRow(
+                label = t("editor.replace"),
+                value = replacement,
+                onValueChange = onReplacementChange
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SearchTextAction(
+                    text = t("editor.previous_match"),
+                    enabled = matchCount > 0,
+                    color = if (matchCount > 0) blue else disabledBlue,
+                    onClick = onPrevious,
+                    modifier = Modifier.weight(1f)
+                )
+                SearchTextAction(
+                    text = t("editor.next_match"),
+                    enabled = matchCount > 0,
+                    color = if (matchCount > 0) blue else disabledBlue,
+                    onClick = onNext,
+                    modifier = Modifier.weight(1f)
+                )
+                SearchTextAction(
+                    text = t("editor.replace"),
+                    enabled = matchCount > 0,
+                    color = if (matchCount > 0) blue else disabledBlue,
+                    onClick = onReplace,
+                    modifier = Modifier.weight(1f)
+                )
+                SearchTextAction(
+                    text = t("editor.replace_all"),
+                    enabled = matchCount > 0,
+                    color = if (matchCount > 0) blue else disabledBlue,
+                    onClick = onReplaceAll,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .semantics {
+                            contentDescription = t("common.cancel")
+                        }
+                ) {
+                    Canvas(Modifier.size(22.dp)) {
+                        val stroke = 2.dp.toPx()
+                        drawLine(
+                            blue,
+                            Offset(size.width * 0.24f, size.height * 0.24f),
+                            Offset(size.width * 0.76f, size.height * 0.76f),
+                            stroke,
+                            StrokeCap.Round
+                        )
+                        drawLine(
+                            blue,
+                            Offset(size.width * 0.76f, size.height * 0.24f),
+                            Offset(size.width * 0.24f, size.height * 0.76f),
+                            stroke,
+                            StrokeCap.Round
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchInputRow(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    focusRequester: FocusRequester? = null
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(36.dp)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.width(42.dp),
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(28.dp)
+                    .then(
+                        if (focusRequester != null) {
+                            Modifier.focusRequester(focusRequester)
+                        } else {
+                            Modifier
+                        }
+                    ),
+                singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurface
+                ),
+                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                interactionSource = interactionSource
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (focused) 2.dp else 1.dp)
+                    .background(
+                        if (focused) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
+                    )
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchTextAction(
+    text: String,
+    enabled: Boolean,
+    color: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    TextButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 2.dp)
+    ) {
+        Text(
+            text = text,
+            color = color,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+@Composable
 private fun EditorTextArea(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
+    scrollSelectionRequest: Int,
     modifier: Modifier = Modifier
 ) {
     val horizontalScroll = rememberScrollState()
     val verticalScroll = rememberScrollState()
     val density = LocalDensity.current
+    val textMeasurer = rememberTextMeasurer()
     val lineCount = value.text.count { it == '\n' } + 1
     val digits = lineCount.toString().length.coerceAtLeast(1)
     val gutterWidth = (digits * 10 + 14).dp
@@ -383,6 +743,37 @@ private fun EditorTextArea(
         val minimumTextWidth = (maxWidth - gutterWidth).coerceAtLeast(1.dp)
         val dividerOffset = gutterWidth - with(density) {
             horizontalScroll.value.toDp()
+        }
+        LaunchedEffect(scrollSelectionRequest) {
+            if (scrollSelectionRequest <= 0 ||
+                value.selection.collapsed ||
+                value.text.isEmpty()
+            ) {
+                return@LaunchedEffect
+            }
+            val textLayout = textMeasurer.measure(
+                text = AnnotatedString(value.text),
+                style = textStyle,
+                softWrap = false,
+                maxLines = Int.MAX_VALUE,
+                constraints = Constraints()
+            )
+            val offset = minOf(value.selection.start, value.selection.end)
+                .coerceIn(0, value.text.lastIndex)
+            val box = textLayout.getBoundingBox(offset)
+            val viewportWidthPx = with(density) { maxWidth.toPx() }
+            val viewportHeightPx = with(density) { viewportHeight.toPx() }
+            val textStartPx = with(density) { (gutterWidth + 8.dp).toPx() }
+            horizontalScroll.animateScrollTo(
+                (textStartPx + box.left - viewportWidthPx / 3f)
+                    .roundToInt()
+                    .coerceIn(0, horizontalScroll.maxValue)
+            )
+            verticalScroll.animateScrollTo(
+                (with(density) { 8.dp.toPx() } + box.top - viewportHeightPx / 3f)
+                    .roundToInt()
+                    .coerceIn(0, verticalScroll.maxValue)
+            )
         }
         Row(
             modifier = Modifier
@@ -639,3 +1030,37 @@ private fun editorPosition(value: TextFieldValue): String {
     }
     return if (selectedCount > 0) "$line:$column ($selectedCount)" else "$line:$column"
 }
+
+private fun findTextMatches(
+    text: String,
+    query: String,
+    caseSensitive: Boolean,
+    wholeWord: Boolean
+): List<TextRange> {
+    if (query.isEmpty() || text.isEmpty()) return emptyList()
+    val haystack = if (caseSensitive) text else text.lowercase()
+    val needle = if (caseSensitive) query else query.lowercase()
+    if (needle.isEmpty()) return emptyList()
+    val queryStartsWord = needle.first().isWordCharacter()
+    val queryEndsWord = needle.last().isWordCharacter()
+    val matches = mutableListOf<TextRange>()
+    var offset = haystack.indexOf(needle)
+    while (offset >= 0) {
+        val end = offset + needle.length
+        val wholeWordMatches = !wholeWord ||
+            (
+                (!queryStartsWord || offset == 0 ||
+                    !haystack[offset - 1].isWordCharacter()) &&
+                    (!queryEndsWord || end == haystack.length ||
+                        !haystack[end].isWordCharacter())
+                )
+        if (wholeWordMatches) {
+            matches.add(TextRange(offset, end))
+        }
+        offset = haystack.indexOf(needle, offset + 1)
+    }
+    return matches
+}
+
+private fun Char.isWordCharacter(): Boolean =
+    isLetterOrDigit() || this == '_'

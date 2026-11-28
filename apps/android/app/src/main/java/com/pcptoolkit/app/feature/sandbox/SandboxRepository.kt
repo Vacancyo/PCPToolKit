@@ -19,6 +19,7 @@ import android.net.Uri
 import android.os.Build
 import androidx.core.graphics.drawable.toBitmap
 import top.niunaijun.blackbox.BlackBoxCore
+import java.io.File
 import java.util.Locale
 
 /**
@@ -113,6 +114,79 @@ object SandboxRepository {
                 packageName = result.packageName,
                 message = result.msg
             )
+        }.getOrElse { error ->
+            SandboxInstallResult(
+                success = false,
+                packageName = null,
+                message = error.message ?: error.javaClass.simpleName
+            )
+        }
+    }
+
+    /**
+     * @brief 用新的 APK 覆盖当前沙箱应用的包体，同时保留用户数据。
+     */
+    fun update(
+        context: Context,
+        uri: Uri,
+        expectedPackageName: String
+    ): SandboxInstallResult {
+        if (!isSupported()) {
+            return SandboxInstallResult(false, null, "unsupported_abi")
+        }
+        if (!BlackBoxCore.get().isInstalled(expectedPackageName, SANDBOX_USER_ID)) {
+            return SandboxInstallResult(false, null, "not_installed")
+        }
+        return runCatching {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+            val staged = File(
+                context.cacheDir,
+                "pcp_update_${System.currentTimeMillis()}.apk"
+            )
+            try {
+                val input = context.contentResolver.openInputStream(uri)
+                    ?: return@runCatching SandboxInstallResult(
+                        false,
+                        null,
+                        "openInputStream returned null"
+                    )
+                input.use { source ->
+                    staged.outputStream().use { target ->
+                        source.copyTo(target)
+                    }
+                }
+                val archivePackage = BlackBoxCore.getPackageManager()
+                    .getPackageArchiveInfo(staged.absolutePath, 0)
+                    ?.packageName
+                    ?: return@runCatching SandboxInstallResult(
+                        false,
+                        null,
+                        "getPackageArchiveInfo error"
+                    )
+                if (archivePackage != expectedPackageName) {
+                    return@runCatching SandboxInstallResult(
+                        false,
+                        archivePackage,
+                        "package_mismatch"
+                    )
+                }
+                val result = BlackBoxCore.get().installPackageAsUser(
+                    staged,
+                    SANDBOX_USER_ID
+                )
+                SandboxInstallResult(
+                    success = result.success,
+                    packageName = result.packageName,
+                    message = result.msg
+                )
+            } finally {
+                staged.delete()
+            }
         }.getOrElse { error ->
             SandboxInstallResult(
                 success = false,

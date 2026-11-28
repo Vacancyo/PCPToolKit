@@ -13,6 +13,7 @@
 #include <Hook/BinderHook.h>
 #include <Hook/DexFileHook.h>
 #include <Hook/RuntimeHook.h>
+#include <Hook/SpeedHook.h>
 #include "Utils/HexDump.h"
 #include "Utils/VirtualSpoof.h"
 #include "hidden_api.h"
@@ -159,6 +160,10 @@ void setDeviceSpoof(JNIEnv *env, jclass clazz,
     if (serial) env->ReleaseStringUTFChars(serial, c_serial);
 }
 
+void setGameSpeed(JNIEnv *env, jclass clazz, jfloat speed) {
+    SpeedHook::setSpeed(speed);
+}
+
 static JNINativeMethod gMethods[] = {
         {"disableHiddenApi", "()Z",                               (void *) disableHiddenApi},
         {"disableResourceLoading", "()Z",                         (void *) disableResourceLoading},
@@ -166,6 +171,7 @@ static JNINativeMethod gMethods[] = {
         {"addIORule",  "(Ljava/lang/String;Ljava/lang/String;)V", (void *) addIORule},
         {"enableIO",   "()V",                                     (void *) enableIO},
         {"init",       "(I)V",                                    (void *) init},
+        {"setGameSpeed", "(F)V",                                  (void *) setGameSpeed},
         {"setDeviceSpoof", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V", (void *) setDeviceSpoof},
 };
 

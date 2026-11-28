@@ -26,6 +26,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -40,16 +41,20 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
+import android.widget.SeekBar
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -63,11 +68,18 @@ import com.pcptoolkit.app.feature.script.ScriptHost
 import com.pcptoolkit.app.feature.script.ScriptStore
 import com.pcptoolkit.app.feature.script.ScriptVision
 import com.pcptoolkit.app.platform.accessibility.AutomationAccessibilityService
+import top.niunaijun.blackbox.BlackBoxCore
 import java.util.Locale
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.math.roundToInt
+
+private enum class OverlayPage(val label: String) {
+    HOME("主页"),
+    SCRIPTS("脚本"),
+    SPEED("变速")
+}
 
 /**
  * @brief 承载悬浮球、控制面板、日志窗口和脚本运行的悬浮窗服务。
@@ -89,6 +101,8 @@ class FloatingWindowService : Service() {
     private var logParams: WindowManager.LayoutParams? = null
     private var bubbleRestore: Runnable? = null
     private var logRestore: Runnable? = null
+    private var panelPage = OverlayPage.HOME
+    private var gameSpeed = DEFAULT_GAME_SPEED
 
     private var scripts: List<ScriptEntry> = emptyList()
     private var selectedScript: ScriptEntry? = null
@@ -116,6 +130,9 @@ class FloatingWindowService : Service() {
     override fun onCreate() {
         super.onCreate()
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        gameSpeed = getSharedPreferences(SETTINGS_PREFS, MODE_PRIVATE)
+            .getFloat(SPEED_PREF_KEY, DEFAULT_GAME_SPEED)
+            .coerceIn(MIN_INPUT_GAME_SPEED, MAX_INPUT_GAME_SPEED)
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, notification(running = false))
         if (!Settings.canDrawOverlays(this)) {
@@ -323,12 +340,15 @@ class FloatingWindowService : Service() {
     }
 
     /**
-     * @brief 创建并显示脚本控制面板。
+     * @brief 创建并显示悬浮窗主页及其二级页面。
      */
     private fun showPanel() {
+        val (screenWidth, screenHeight) = screenSize()
+        val width = minOf(screenWidth - dp(32), dp(420)).coerceAtLeast(dp(280))
+        val maxHeight = (screenHeight - dp(24)).coerceAtLeast(dp(240))
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(16), dp(18), dp(16))
+            setPadding(dp(12), dp(12), dp(12), dp(12))
             elevation = dp(12).toFloat()
             background = rounded(0xF7FFFFFF.toInt(), 20)
         }
@@ -339,7 +359,7 @@ class FloatingWindowService : Service() {
         }
         header.addView(
             TextView(this).apply {
-                text = "PCP 脚本"
+                text = "PCPToolKit · ${panelPage.label}"
                 setTextColor(0xFF152338.toInt())
                 setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 18f)
                 typeface = Typeface.DEFAULT_BOLD
@@ -361,16 +381,152 @@ class FloatingWindowService : Service() {
             }
         )
         root.addView(header)
+        root.addView(
+            View(this).apply { setBackgroundColor(0xFFE5E7EB.toInt()) },
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(1)
+            ).apply { topMargin = dp(10) }
+        )
 
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(10), 0, 0)
+        }
+        val navigation = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        OverlayPage.entries.forEach { page ->
+            val selected = page == panelPage
+            navigation.addView(
+                TextView(this).apply {
+                    text = page.label
+                    gravity = Gravity.CENTER
+                    setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 14f)
+                    typeface = Typeface.DEFAULT_BOLD
+                    setTextColor(if (selected) Color.WHITE else 0xFF536174.toInt())
+                    background = rounded(
+                        if (selected) 0xFF2563EB.toInt() else 0xFFEFF3F8.toInt(),
+                        12
+                    )
+                    setOnClickListener {
+                        if (panelPage != page) {
+                            panelPage = page
+                            mainHandler.post {
+                                removePanel()
+                                showPanel()
+                            }
+                        }
+                    }
+                },
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(44)
+                ).apply { bottomMargin = dp(7) }
+            )
+        }
+        body.addView(
+            navigation,
+            LinearLayout.LayoutParams(dp(82), LinearLayout.LayoutParams.WRAP_CONTENT)
+        )
+
+        val pageContent = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), 0, 0, 0)
+        }
+        when (panelPage) {
+            OverlayPage.HOME -> buildHomePage(pageContent)
+            OverlayPage.SCRIPTS -> buildScriptsPage(pageContent)
+            OverlayPage.SPEED -> buildSpeedPage(pageContent)
+        }
+        val pageScroll = MaxHeightScrollView(this, maxHeight - dp(70)).apply {
+            addView(pageContent)
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+            isVerticalScrollBarEnabled = true
+        }
+        body.addView(
+            pageScroll,
+            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        )
+        root.addView(body)
+
+        val params = WindowManager.LayoutParams(
+            width,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            overlayType(),
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                if (panelPage == OverlayPage.SPEED) {
+                    0
+                } else {
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                },
+            PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.CENTER
+            screenOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            softInputMode =
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
+                    WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
+        }
+        runCatching {
+            windowManager.addView(root, params)
+            panel = root
+            if (panelPage == OverlayPage.SCRIPTS) {
+                refreshScripts()
+            }
+        }.onFailure {
+            statusView?.text = "无法显示悬浮窗"
+        }
+    }
+
+    /**
+     * @brief 构建悬浮窗主页内容。
+     */
+    private fun buildHomePage(content: LinearLayout) {
+        content.addView(
+            TextView(this).apply {
+                text = "PCPToolKit"
+                setTextColor(0xFF152338.toInt())
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 22f)
+                typeface = Typeface.DEFAULT_BOLD
+            }
+        )
+        content.addView(
+            TextView(this).apply {
+                text = "从左侧选择脚本或变速功能。"
+                setTextColor(0xFF536174.toInt())
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13f)
+                setPadding(0, dp(8), 0, dp(14))
+            }
+        )
+        content.addView(summaryRow("当前脚本", if (running) "运行中" else "未运行"))
+        content.addView(summaryRow("当前速度", formatSpeed(gameSpeed) + "x"))
+        content.addView(
+            Button(this).apply {
+                text = "关闭悬浮窗"
+                setTextColor(Color.WHITE)
+                background = rounded(0xFFB42318.toInt(), 12)
+                setOnClickListener { stopSelf() }
+            },
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(46)
+            ).apply { topMargin = dp(16) }
+        )
+    }
+
+    /**
+     * @brief 构建脚本二级页面。
+     */
+    private fun buildScriptsPage(content: LinearLayout) {
         statusView = TextView(this).apply {
             text = if (running) "脚本运行中" else "请选择脚本"
             setTextColor(0xFF536174.toInt())
             setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12f)
-            setPadding(0, dp(6), 0, dp(12))
+            setPadding(0, 0, 0, dp(10))
         }
-        root.addView(statusView)
-
-        root.addView(
+        content.addView(statusView)
+        content.addView(
             TextView(this).apply {
                 text = "我的脚本"
                 setTextColor(0xFF2563EB.toInt())
@@ -383,7 +539,7 @@ class FloatingWindowService : Service() {
         scriptGroup = RadioGroup(this).apply {
             orientation = RadioGroup.VERTICAL
         }
-        root.addView(
+        content.addView(
             scriptGroup,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -413,17 +569,14 @@ class FloatingWindowService : Service() {
         stopButton = stop
         run.isEnabled = !running
         stop.isEnabled = running
-        actions.addView(
-            run,
-            LinearLayout.LayoutParams(0, dp(46), 1f)
-        )
+        actions.addView(run, LinearLayout.LayoutParams(0, dp(46), 1f))
         actions.addView(
             stop,
             LinearLayout.LayoutParams(0, dp(46), 0.65f).apply { marginStart = dp(8) }
         )
-        root.addView(actions)
+        content.addView(actions)
 
-        root.addView(
+        content.addView(
             TextView(this).apply {
                 text = "运行前需开启无障碍服务，用于截屏和模拟手势。"
                 setTextColor(0xFF748297.toInt())
@@ -440,8 +593,8 @@ class FloatingWindowService : Service() {
             setPadding(0, dp(10), 0, 0)
             setOnClickListener { toggleLogConsole() }
         }
-        root.addView(logButton)
-        root.addView(
+        content.addView(logButton)
+        content.addView(
             TextView(this).apply {
                 text = "关闭悬浮窗"
                 setTextColor(0xFFB42318.toInt())
@@ -450,36 +603,235 @@ class FloatingWindowService : Service() {
                 setOnClickListener { stopSelf() }
             }
         )
+    }
 
-        val (screenWidth, screenHeight) = screenSize()
-        val width = minOf(screenWidth - dp(32), dp(360)).coerceAtLeast(dp(240))
-        val maxHeight = (screenHeight - dp(24)).coerceAtLeast(dp(220))
-        root.layoutParams = ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
+    /**
+     * @brief 构建变速二级页面。
+     */
+    private fun buildSpeedPage(content: LinearLayout) {
+        content.addView(
+            TextView(this).apply {
+                text = "游戏速度"
+                setTextColor(0xFF152338.toInt())
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 18f)
+                typeface = Typeface.DEFAULT_BOLD
+            }
         )
-        val panelScroll = MaxHeightScrollView(this, maxHeight).apply {
-            addView(root)
-            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
-            isVerticalScrollBarEnabled = true
+        content.addView(
+            TextView(this).apply {
+                text = "输入倍率（${formatSpeed(MIN_INPUT_GAME_SPEED)}–" +
+                    "${formatSpeed(MAX_INPUT_GAME_SPEED)}），或拖动下方滑条快速调整。"
+                setTextColor(0xFF536174.toInt())
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 12f)
+                setPadding(0, dp(6), 0, dp(12))
+            }
+        )
+
+        val inputRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
-        val params = WindowManager.LayoutParams(
-            width,
-            WindowManager.LayoutParams.WRAP_CONTENT,
-            overlayType(),
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-            PixelFormat.TRANSLUCENT
-        ).apply {
-            gravity = Gravity.CENTER
+        val input = EditText(this).apply {
+            inputType =
+                android.text.InputType.TYPE_CLASS_NUMBER or
+                    android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setSingleLine(true)
+            setText(formatSpeed(gameSpeed))
+            setSelection(text.length)
+            setTextColor(0xFF152338.toInt())
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 18f)
+            background = rounded(0xFFF1F4F8.toInt(), 12)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
         }
-        runCatching {
-            windowManager.addView(panelScroll, params)
-            panel = panelScroll
-            refreshScripts()
-        }.onFailure {
-            statusView?.text = "无法显示悬浮窗"
+        inputRow.addView(input, LinearLayout.LayoutParams(0, dp(48), 1f))
+        inputRow.addView(
+            TextView(this).apply {
+                text = "x"
+                setTextColor(0xFF536174.toInt())
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 18f)
+                gravity = Gravity.CENTER
+            },
+            LinearLayout.LayoutParams(dp(32), dp(48))
+        )
+        content.addView(inputRow)
+
+        val steps = ((MAX_SLIDER_GAME_SPEED - MIN_SLIDER_GAME_SPEED) /
+            GAME_SPEED_STEP).roundToInt()
+        val slider = SeekBar(this).apply {
+            max = steps
+            progress = speedToProgress(gameSpeed, steps)
+            setPadding(0, dp(8), 0, 0)
+        }
+        content.addView(slider)
+
+        val range = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        range.addView(
+            TextView(this).apply {
+                text = formatSpeed(MIN_SLIDER_GAME_SPEED) + "x"
+                setTextColor(0xFF748297.toInt())
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11f)
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    1f
+                )
+            }
+        )
+        range.addView(
+            TextView(this).apply {
+                text = formatSpeed(MAX_SLIDER_GAME_SPEED) + "x"
+                setTextColor(0xFF748297.toInt())
+                setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 11f)
+                gravity = Gravity.END
+                layoutParams = LinearLayout.LayoutParams(
+                    0,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    1f
+                )
+            }
+        )
+        content.addView(range)
+
+        val current = TextView(this).apply {
+            text = "当前设置：${formatSpeed(gameSpeed)}x"
+            setTextColor(0xFF2563EB.toInt())
+            setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13f)
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(14), 0, 0)
+        }
+        content.addView(current)
+
+        var syncing = false
+        fun updateSpeed(value: Float, updateField: Boolean, updateSlider: Boolean) {
+            val normalized = value.coerceIn(MIN_INPUT_GAME_SPEED, MAX_INPUT_GAME_SPEED)
+            setGameSpeed(normalized)
+            current.text = "当前设置：${formatSpeed(normalized)}x"
+            syncing = true
+            if (updateField) {
+                input.setText(formatSpeed(normalized))
+                input.setSelection(input.text.length)
+            }
+            if (updateSlider) {
+                slider.progress = speedToProgress(normalized, steps)
+            }
+            syncing = false
+        }
+
+        input.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(
+                s: CharSequence?,
+                start: Int,
+                count: Int,
+                after: Int
+            ) = Unit
+
+            override fun onTextChanged(
+                s: CharSequence?,
+                start: Int,
+                before: Int,
+                count: Int
+            ) = Unit
+
+            override fun afterTextChanged(s: Editable?) {
+                if (syncing) return
+                val value = s?.toString()?.toFloatOrNull() ?: return
+                updateSpeed(value, updateField = false, updateSlider = true)
+            }
+        })
+        input.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) {
+                input.setText(formatSpeed(gameSpeed))
+                input.setSelection(input.text.length)
+            }
+        }
+        slider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(
+                seekBar: SeekBar?,
+                progress: Int,
+                fromUser: Boolean
+            ) {
+                if (!fromUser || syncing) return
+                updateSpeed(
+                    progressToSpeed(progress),
+                    updateField = true,
+                    updateSlider = false
+                )
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {
+                if (gameSpeed < MIN_SLIDER_GAME_SPEED ||
+                    gameSpeed > MAX_SLIDER_GAME_SPEED
+                ) {
+                    seekBar?.let {
+                        updateSpeed(
+                            progressToSpeed(it.progress),
+                            updateField = true,
+                            updateSlider = false
+                        )
+                    }
+                }
+            }
+
+            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+        })
+    }
+
+    /**
+     * @brief 创建主页摘要行。
+     */
+    private fun summaryRow(label: String, value: String): View {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(7), 0, dp(7))
+            addView(
+                TextView(this@FloatingWindowService).apply {
+                    text = label
+                    setTextColor(0xFF536174.toInt())
+                    setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13f)
+                },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            )
+            addView(
+                TextView(this@FloatingWindowService).apply {
+                    text = value
+                    setTextColor(0xFF152338.toInt())
+                    setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, 13f)
+                    typeface = Typeface.DEFAULT_BOLD
+                }
+            )
         }
     }
+
+    private fun setGameSpeed(value: Float) {
+        gameSpeed = value.coerceIn(MIN_INPUT_GAME_SPEED, MAX_INPUT_GAME_SPEED)
+        getSharedPreferences(SETTINGS_PREFS, MODE_PRIVATE)
+            .edit()
+            .putFloat(SPEED_PREF_KEY, gameSpeed)
+            .apply()
+        runCatching {
+            BlackBoxCore.getBActivityManager().setGameSpeed(gameSpeed)
+        }.onFailure { error ->
+            android.util.Log.e("FloatingWindowService", "apply game speed failed", error)
+        }
+    }
+
+    private fun speedToProgress(speed: Float, steps: Int): Int {
+        return ((speed - MIN_SLIDER_GAME_SPEED) / GAME_SPEED_STEP)
+            .roundToInt()
+            .coerceIn(0, steps)
+    }
+
+    private fun progressToSpeed(progress: Int): Float {
+        return (MIN_SLIDER_GAME_SPEED + progress * GAME_SPEED_STEP)
+            .coerceIn(MIN_SLIDER_GAME_SPEED, MAX_SLIDER_GAME_SPEED)
+    }
+
+    private fun formatSpeed(speed: Float): String =
+        String.format(Locale.ROOT, "%.2f", speed)
 
     /**
      * @brief 移除脚本控制面板。
@@ -1264,6 +1616,14 @@ class FloatingWindowService : Service() {
     }
 
     companion object {
+        private const val SETTINGS_PREFS = "settings"
+        private const val SPEED_PREF_KEY = "overlay_game_speed"
+        private const val DEFAULT_GAME_SPEED = 1.0f
+        private const val MIN_INPUT_GAME_SPEED = 0.05f
+        private const val MAX_INPUT_GAME_SPEED = 10.0f
+        private const val MIN_SLIDER_GAME_SPEED = 0.25f
+        private const val MAX_SLIDER_GAME_SPEED = 3.0f
+        private const val GAME_SPEED_STEP = 0.05f
         private const val CHANNEL_ID = "pcp_floating"
         private const val NOTIFICATION_ID = 41
         private const val MATCH_THRESHOLD = 0.82

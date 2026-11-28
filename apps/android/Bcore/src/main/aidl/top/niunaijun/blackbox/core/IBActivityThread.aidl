@@ -14,6 +14,7 @@ import top.niunaijun.blackbox.entity.am.ReceiverData;
 interface IBActivityThread {
     IBinder getActivityThread();
     void bindApplication();
+    void setGameSpeed(float speed);
     void restartJobService(String selfId);
     IBinder acquireContentProviderClient(in ProviderInfo providerInfo);
 

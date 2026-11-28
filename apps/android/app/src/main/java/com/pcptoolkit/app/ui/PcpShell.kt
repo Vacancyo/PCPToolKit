@@ -35,6 +35,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -86,6 +87,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -118,6 +120,7 @@ private val SettingsHeadingColor = Color(0xFF187BDE)
  */
 private enum class PcpPage(val titleKey: String) {
     HOME("nav.home"),
+    SANDBOX("nav.sandbox"),
     RTON("nav.rton"),
     SCRIPTS("nav.scripts")
 }
@@ -197,14 +200,21 @@ fun PcpShell(
         scope.launch { toastState.show(text, isError) }
     }
 
-    BackHandler(enabled = restartNoticeOpen || settingsOpen || languageOpen || menuOpen) {
+    fun navigateBack() {
         when {
             restartNoticeOpen -> restartNoticeOpen = false
             languageOpen -> languageOpen = false
             settingsOpen -> settingsOpen = false
-            else -> menuOpen = false
+            menuOpen -> menuOpen = false
+            sandboxFileApp != null -> sandboxFileApp = null
+            page != PcpPage.HOME -> page = PcpPage.HOME
         }
     }
+    val canNavigateBack =
+        restartNoticeOpen || settingsOpen || languageOpen || menuOpen ||
+            sandboxFileApp != null || page != PcpPage.HOME
+
+    BackHandler(enabled = canNavigateBack, onBack = ::navigateBack)
 
     // NativeBridge 的语言不是 Compose 状态，用语言作为组合键重建所有 t（） 文本。
     key(lang) {
@@ -223,7 +233,7 @@ fun PcpShell(
                     }
                     .zIndex(1f)
             ) {
-                val fileManagerOpen = page == PcpPage.HOME && sandboxFileApp != null
+                val fileManagerOpen = page == PcpPage.SANDBOX && sandboxFileApp != null
                 Column(Modifier.fillMaxSize()) {
                     PcpTopBar(
                         title = if (fileManagerOpen) t("sandbox.file_manager")
@@ -239,7 +249,8 @@ fun PcpShell(
                     )
                     Box(Modifier.weight(1f)) {
                         when (page) {
-                            PcpPage.HOME -> SandboxPage(
+                            PcpPage.HOME -> PcpHomePage()
+                            PcpPage.SANDBOX -> SandboxPage(
                                 overlayEnabled = overlayEnabled,
                                 fileApp = sandboxFileApp,
                                 onFileAppChange = { sandboxFileApp = it },
@@ -284,7 +295,8 @@ fun PcpShell(
                 onSettingsClick = {
                     settingsOpen = true
                     languageOpen = false
-                }
+                },
+                onBackClick = ::navigateBack
             )
 
             AnimatedVisibility(
@@ -366,6 +378,44 @@ fun PcpShell(
 }
 
 /**
+ * @brief 显示 PCPToolKit 内部品牌主页。
+ */
+@Composable
+private fun PcpHomePage() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp)
+    ) {
+        Spacer(Modifier.height(20.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Image(
+                painter = painterResource(R.drawable.pcp_logo_dark),
+                contentDescription = null,
+                modifier = Modifier.size(56.dp)
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = "PCPToolKit",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = "v1.0.0",
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+/**
  * @brief 显示带菜单按钮的顶部栏。
  * @param title 页面标题。
  * @param onMenuClick 菜单按钮回调。
@@ -424,37 +474,44 @@ private fun SideMenu(
     modifier: Modifier,
     selected: PcpPage,
     onPageClick: (PcpPage) -> Unit,
-    onSettingsClick: () -> Unit
+    onSettingsClick: () -> Unit,
+    onBackClick: () -> Unit
 ) {
     Surface(
         modifier = modifier,
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = colorResource(R.color.pcp_top_bar),
         tonalElevation = 4.dp
     ) {
         Column(
-            Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
+            Modifier.fillMaxSize()
         ) {
-            Text(
-                text = "PCPToolKit",
-                modifier = Modifier.padding(start = 14.dp, top = 22.dp, end = 10.dp),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
-            )
-            Spacer(Modifier.height(18.dp))
+            Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .height(64.dp)
+                        .padding(horizontal = 14.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Text(
+                        text = "PCPToolKit",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
+            }
 
             Column(
                 Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 10.dp),
+                    .padding(horizontal = 10.dp, vertical = 18.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 MenuSection(
-                    pages = listOf(PcpPage.HOME),
+                    pages = listOf(PcpPage.HOME, PcpPage.SANDBOX),
                     selected = selected,
                     onPageClick = onPageClick
                 )
@@ -482,10 +539,19 @@ private fun SideMenu(
                 Modifier
                     .fillMaxWidth()
                     .height(64.dp)
-                    .padding(end = 10.dp),
-                horizontalArrangement = Arrangement.End,
+                    .navigationBarsPadding()
+                    .padding(horizontal = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                IconButton(
+                    onClick = onBackClick,
+                    modifier = Modifier.semantics {
+                        contentDescription = t("settings.back")
+                    }
+                ) {
+                    BackIcon()
+                }
                 IconButton(
                     onClick = onSettingsClick,
                     modifier = Modifier.semantics { contentDescription = t("settings.open") }

@@ -47,6 +47,11 @@ public class BActivityManagerService extends IBActivityManagerService.Stub imple
     }
 
     @Override
+    public void setGameSpeed(float speed) {
+        BProcessManagerService.get().setGameSpeed(speed);
+    }
+
+    @Override
     public ComponentName startService(Intent intent, String resolvedType, boolean requireForeground, int userId) {
         UserSpace userSpace = getOrCreateSpaceLocked(userId);
         synchronized (userSpace.mActiveServices) {

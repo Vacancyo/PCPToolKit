@@ -285,6 +285,69 @@ object SandboxFileRepository {
         )
     }
 
+    fun copy(
+        packageName: String,
+        sourceArea: SandboxFileArea,
+        sourceEntry: SandboxFileEntry,
+        targetArea: SandboxFileArea,
+        targetDirectoryPath: String,
+        conflictAction: SandboxImportConflictAction? = null
+    ): SandboxFileEntry? {
+        val source = resolve(packageName, sourceArea, sourceEntry.relativePath)
+        val targetDirectory = resolve(packageName, targetArea, targetDirectoryPath)
+        require(source.exists()) { "not_found" }
+        require(targetDirectory.isDirectory) { "not_a_directory" }
+        ensureNotInsideSource(source, targetDirectory)
+        var target = File(targetDirectory, source.name)
+        if (target.exists()) {
+            when (conflictAction) {
+                null -> require(false) { "file_exists" }
+                SandboxImportConflictAction.SKIP -> return null
+                SandboxImportConflictAction.KEEP_BOTH ->
+                    target = availableTarget(targetDirectory, source.name)
+                SandboxImportConflictAction.REPLACE -> deletePath(target)
+            }
+        }
+
+        stopPackageIfNeeded(packageName, sourceArea)
+        if (sourceArea != targetArea) stopPackageIfNeeded(packageName, targetArea)
+        copyEntry(source, target)
+        return target.toEntry(targetDirectoryPath)
+    }
+
+    fun move(
+        packageName: String,
+        sourceArea: SandboxFileArea,
+        sourceEntry: SandboxFileEntry,
+        targetArea: SandboxFileArea,
+        targetDirectoryPath: String,
+        conflictAction: SandboxImportConflictAction? = null
+    ): SandboxFileEntry? {
+        val source = resolve(packageName, sourceArea, sourceEntry.relativePath)
+        val targetDirectory = resolve(packageName, targetArea, targetDirectoryPath)
+        require(source.exists()) { "not_found" }
+        require(targetDirectory.isDirectory) { "not_a_directory" }
+        ensureNotInsideSource(source, targetDirectory)
+        var target = File(targetDirectory, source.name)
+        if (target.exists()) {
+            when (conflictAction) {
+                null -> require(false) { "file_exists" }
+                SandboxImportConflictAction.SKIP -> return null
+                SandboxImportConflictAction.KEEP_BOTH ->
+                    target = availableTarget(targetDirectory, source.name)
+                SandboxImportConflictAction.REPLACE -> deletePath(target)
+            }
+        }
+
+        stopPackageIfNeeded(packageName, sourceArea)
+        if (sourceArea != targetArea) stopPackageIfNeeded(packageName, targetArea)
+        if (!source.renameTo(target)) {
+            copyEntry(source, target)
+            delete(packageName, sourceArea, sourceEntry)
+        }
+        return target.toEntry(targetDirectoryPath)
+    }
+
     fun exportToUri(
         context: Context,
         packageName: String,
@@ -320,6 +383,47 @@ object SandboxFileRepository {
         }
     }
 
+    fun exportEntriesToUri(
+        context: Context,
+        packageName: String,
+        area: SandboxFileArea,
+        entries: List<SandboxFileEntry>,
+        target: Uri
+    ) {
+        require(entries.isNotEmpty()) { "empty_selection" }
+        if (entries.size == 1) {
+            exportToUri(context, packageName, area, entries.first(), target)
+            return
+        }
+        val output = context.contentResolver.openOutputStream(target, "w")
+            ?: throw IOException("Cannot open export target")
+        output.use { destination ->
+            ZipOutputStream(destination).use { zip ->
+                entries.forEach { entry ->
+                    val source = resolve(packageName, area, entry.relativePath)
+                    require(source.exists()) { "not_found" }
+                    source.walkTopDown().forEach { child ->
+                        val relative = child.relativeTo(source).invariantSeparatorsPath
+                        val entryName = if (relative.isEmpty()) {
+                            source.name
+                        } else {
+                            "${source.name}/$relative"
+                        }
+                        zip.putNextEntry(
+                            ZipEntry(if (child.isDirectory) "$entryName/" else entryName)
+                        )
+                        if (child.isFile) {
+                            child.inputStream().use { input ->
+                                input.copyTo(zip, BUFFER_SIZE)
+                            }
+                        }
+                        zip.closeEntry()
+                    }
+                }
+            }
+        }
+    }
+
     fun getProperties(
         packageName: String,
         area: SandboxFileArea,
@@ -343,24 +447,39 @@ object SandboxFileRepository {
         packageName: String,
         area: SandboxFileArea,
         entry: SandboxFileEntry
-    ): File {
-        val source = resolve(packageName, area, entry.relativePath)
-        require(source.isFile) { "not_a_file" }
+    ): File = prepareShareFiles(context, packageName, area, listOf(entry)).first()
+
+    fun prepareShareFiles(
+        context: Context,
+        packageName: String,
+        area: SandboxFileArea,
+        entries: List<SandboxFileEntry>
+    ): List<File> {
+        require(entries.isNotEmpty()) { "empty_selection" }
+        require(entries.all { !it.isDirectory }) { "not_a_file" }
         val shareDirectory = File(context.cacheDir, "sandbox-share").apply { mkdirs() }
         shareDirectory.listFiles()?.forEach { it.delete() }
-        val target = File(shareDirectory, entry.name)
-        source.inputStream().use { input ->
-            target.outputStream().use { output ->
-                input.copyTo(output, BUFFER_SIZE)
+        return entries.map { entry ->
+            val source = resolve(packageName, area, entry.relativePath)
+            require(source.isFile) { "not_a_file" }
+            val target = File(shareDirectory, entry.name)
+            source.inputStream().use { input ->
+                target.outputStream().use { output ->
+                    input.copyTo(output, BUFFER_SIZE)
+                }
             }
+            applyImportedFilePermissions(target)
+            target
         }
-        applyImportedFilePermissions(target)
-        return target
     }
 
     fun delete(packageName: String, area: SandboxFileArea, file: SandboxFileEntry) {
         val target = resolve(packageName, area, file.relativePath)
         stopPackageIfNeeded(packageName, area)
+        deletePath(target)
+    }
+
+    private fun deletePath(target: File) {
         val deleted = if (target.isDirectory) {
             target.walkBottomUp().forEach { child ->
                 child.setWritable(true)
@@ -400,6 +519,42 @@ object SandboxFileRepository {
             "path_outside_sandbox"
         }
     }
+
+    private fun ensureNotInsideSource(source: File, targetDirectory: File) {
+        if (!source.isDirectory) return
+        val sourcePath = source.canonicalPath
+        require(
+            targetDirectory.canonicalPath != sourcePath &&
+                !targetDirectory.canonicalPath.startsWith(sourcePath + File.separator)
+        ) { "target_inside_source" }
+    }
+
+    private fun copyEntry(source: File, target: File) {
+        if (source.isDirectory) {
+            require(target.mkdirs()) { "Unable to create ${target.name}" }
+            source.listFiles().orEmpty().forEach { child ->
+                copyEntry(child, File(target, child.name))
+            }
+            applyImportedDirectoryPermissions(target)
+        } else {
+            source.inputStream().use { input ->
+                target.outputStream().use { output ->
+                    input.copyTo(output, BUFFER_SIZE)
+                }
+            }
+            target.setLastModified(source.lastModified())
+            applyImportedFilePermissions(target)
+        }
+    }
+
+    private fun File.toEntry(parentPath: String): SandboxFileEntry =
+        SandboxFileEntry(
+            name = name,
+            relativePath = joinRelative(parentPath, name),
+            isDirectory = isDirectory,
+            size = if (isDirectory) 0L else length(),
+            lastModified = lastModified()
+        )
 
     private fun joinRelative(parent: String, child: String): String =
         if (parent.isBlank()) child else "$parent/$child"

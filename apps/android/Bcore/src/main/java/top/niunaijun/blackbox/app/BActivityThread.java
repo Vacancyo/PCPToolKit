@@ -1255,6 +1255,11 @@ public class BActivityThread extends IBActivityThread.Stub {
     }
 
     @Override
+    public void setGameSpeed(float speed) {
+        NativeCore.setGameSpeed(speed);
+    }
+
+    @Override
     public void stopService(Intent intent) {
         AppServiceDispatcher.get().stopService(intent);
     }

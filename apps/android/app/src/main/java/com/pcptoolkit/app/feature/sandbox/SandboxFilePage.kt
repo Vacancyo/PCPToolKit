@@ -11,19 +11,24 @@
  */
 package com.pcptoolkit.app.feature.sandbox
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
-import android.webkit.MimeTypeMap
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,10 +48,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -85,14 +88,21 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.pcptoolkit.app.feature.editor.SandboxTextEditorTarget
 import com.pcptoolkit.app.feature.editor.TextEditorTarget
 import com.pcptoolkit.app.t
+import com.pcptoolkit.app.ui.PcpBatchDeleteDialog
+import com.pcptoolkit.app.ui.PcpCategoryTabs
+import com.pcptoolkit.app.ui.PcpSelectableFileRow
+import com.pcptoolkit.app.ui.PcpSelectionToolBar
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.niunaijun.blackbox.fake.provider.FileProvider as BlackBoxFileProvider
 import java.text.SimpleDateFormat
+import java.util.ArrayList
 import java.util.Date
 import java.util.Locale
 
@@ -111,12 +121,15 @@ fun SandboxFilePage(
     var loading by remember { mutableStateOf(true) }
     var refreshing by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
-    var pendingExport by remember { mutableStateOf<SandboxFileEntry?>(null) }
-    var pendingDelete by remember { mutableStateOf<SandboxFileEntry?>(null) }
+    var pendingExport by remember { mutableStateOf<List<SandboxFileEntry>?>(null) }
+    var pendingDelete by remember { mutableStateOf<List<SandboxFileEntry>?>(null) }
+    var deleteBatchMode by remember { mutableStateOf(false) }
     var pendingAction by remember { mutableStateOf<SandboxFileEntry?>(null) }
     var pendingProperties by remember { mutableStateOf<SandboxFileProperties?>(null) }
     var pendingRename by remember { mutableStateOf<SandboxFileEntry?>(null) }
     var renameName by remember { mutableStateOf("") }
+    var transferRequest by remember { mutableStateOf<FileTransferRequest?>(null) }
+    var transferVisible by remember { mutableStateOf(false) }
     var showAddDialog by remember { mutableStateOf(false) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var newEntryName by remember { mutableStateOf("") }
@@ -126,8 +139,20 @@ fun SandboxFilePage(
     }
     val backHistory = remember { mutableStateListOf<String>() }
     val forwardHistory = remember { mutableStateListOf<String>() }
+    val bookmarkPrefs = remember(context) {
+        context.getSharedPreferences("sandbox_file_bookmarks", Context.MODE_PRIVATE)
+    }
+    var bookmarkedPaths by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var selectedPaths by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var selectionAnchor by remember { mutableStateOf<String?>(null) }
 
-    BackHandler(onBack = onBack)
+    fun closeTransfer() {
+        transferVisible = false
+        scope.launch {
+            delay(280)
+            if (!transferVisible) transferRequest = null
+        }
+    }
 
     fun reportFailure(action: String, error: Throwable) {
         onToast(
@@ -136,7 +161,55 @@ fun SandboxFilePage(
         )
     }
 
+    fun bookmarkKey(targetArea: SandboxFileArea, targetPath: String): String =
+        "${app.packageName}|${targetArea.name}|$targetPath"
+
+    fun bookmarksFor(
+        targetArea: SandboxFileArea,
+        targetPath: String
+    ): Set<String> = bookmarkPrefs
+        .getStringSet(bookmarkKey(targetArea, targetPath), emptySet())
+        .orEmpty()
+        .toSet()
+
+    fun toggleBookmark(entry: SandboxFileEntry): Boolean {
+        val next = if (entry.relativePath in bookmarkedPaths) {
+            bookmarkedPaths - entry.relativePath
+        } else {
+            bookmarkedPaths + entry.relativePath
+        }
+        bookmarkPrefs.edit()
+            .putStringSet(bookmarkKey(area, relativePath), next)
+            .apply()
+        bookmarkedPaths = next
+        return entry.relativePath in next
+    }
+
+    fun clearBookmark(
+        targetArea: SandboxFileArea,
+        targetPath: String,
+        entryPath: String
+    ) {
+        val key = bookmarkKey(targetArea, targetPath)
+        val current = bookmarkPrefs.getStringSet(key, emptySet())
+            .orEmpty()
+            .toSet()
+        if (entryPath !in current) return
+        val next = current - entryPath
+        bookmarkPrefs.edit().putStringSet(key, next).apply()
+        if (targetArea == area && targetPath == relativePath) {
+            bookmarkedPaths = next
+        }
+    }
+
+    fun clearSelection() {
+        selectedPaths = emptySet()
+        selectionAnchor = null
+    }
+
     fun reload(showRefreshIndicator: Boolean = false) {
+        val listArea = area
+        val listPath = relativePath
         if (showRefreshIndicator) {
             refreshing = true
         } else {
@@ -145,12 +218,40 @@ fun SandboxFilePage(
         scope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    SandboxFileRepository.list(app.packageName, area, relativePath)
+                    val files = SandboxFileRepository.list(
+                        app.packageName,
+                        listArea,
+                        listPath
+                    )
+                    val marked = bookmarksFor(listArea, listPath)
+                    val validPaths = files.mapTo(mutableSetOf()) { it.relativePath }
+                    val pruned = marked.intersect(validPaths)
+                    if (pruned != marked) {
+                        bookmarkPrefs.edit()
+                            .putStringSet(
+                                bookmarkKey(listArea, listPath),
+                                pruned
+                            )
+                            .apply()
+                    }
+                    files.sortedWith(
+                        compareByDescending<SandboxFileEntry> {
+                            it.relativePath in pruned
+                        }.thenByDescending { it.isDirectory }
+                            .thenBy { it.name.lowercase(Locale.ROOT) }
+                    ) to pruned
                 }
             }
-            result.onSuccess { entries = it }
+            result.onSuccess { (loaded, marked) ->
+                entries = loaded
+                bookmarkedPaths = marked
+                val validPaths = loaded.mapTo(mutableSetOf()) { it.relativePath }
+                selectedPaths = selectedPaths.intersect(validPaths)
+                if (selectedPaths.isEmpty()) selectionAnchor = null
+            }
                 .onFailure {
                     entries = emptyList()
+                    bookmarkedPaths = emptySet()
                     reportFailure(t("sandbox.files.read_failed"), it)
                 }
             loading = false
@@ -160,6 +261,7 @@ fun SandboxFilePage(
 
     fun navigateTo(path: String) {
         if (path == relativePath) return
+        clearSelection()
         backHistory.add(relativePath)
         forwardHistory.clear()
         relativePath = path
@@ -167,12 +269,14 @@ fun SandboxFilePage(
 
     fun navigateBack() {
         if (backHistory.isEmpty()) return
+        clearSelection()
         forwardHistory.add(relativePath)
         relativePath = backHistory.removeAt(backHistory.lastIndex)
     }
 
     fun navigateForward() {
         if (forwardHistory.isEmpty()) return
+        clearSelection()
         backHistory.add(relativePath)
         relativePath = forwardHistory.removeAt(forwardHistory.lastIndex)
     }
@@ -184,10 +288,67 @@ fun SandboxFilePage(
 
     fun switchArea(nextArea: SandboxFileArea) {
         if (nextArea == area) return
+        clearSelection()
         area = nextArea
         relativePath = ""
         backHistory.clear()
         forwardHistory.clear()
+    }
+
+    fun selectBySwipe(entry: SandboxFileEntry) {
+        if (entry.relativePath in selectedPaths) return
+        val anchor = selectionAnchor
+        val targetIndex = entries.indexOfFirst { it.relativePath == entry.relativePath }
+        val anchorIndex = entries.indexOfFirst { it.relativePath == anchor }
+        if (anchor != null && anchorIndex >= 0 && targetIndex >= 0) {
+            val first = minOf(anchorIndex, targetIndex)
+            val last = maxOf(anchorIndex, targetIndex)
+            selectedPaths = selectedPaths + entries
+                .subList(first, last + 1)
+                .map { it.relativePath }
+            selectionAnchor = null
+        } else {
+            selectedPaths = selectedPaths + entry.relativePath
+            selectionAnchor = entry.relativePath
+        }
+    }
+
+    fun handleEntryClick(entry: SandboxFileEntry) {
+        if (selectedPaths.isNotEmpty()) {
+            selectedPaths = if (entry.relativePath in selectedPaths) {
+                selectedPaths - entry.relativePath
+            } else {
+                selectedPaths + entry.relativePath
+            }
+            selectionAnchor = entry.relativePath.takeIf {
+                entry.relativePath in selectedPaths
+            }
+            return
+        }
+        if (entry.isDirectory) {
+            navigateTo(entry.relativePath)
+        } else if (entry.isEditableText) {
+            onEditText(
+                SandboxTextEditorTarget(
+                    packageName = app.packageName,
+                    area = area,
+                    relativePath = entry.relativePath,
+                    displayName = entry.name
+                )
+            )
+        }
+    }
+
+    BackHandler {
+        when {
+            transferVisible -> {
+                closeTransfer()
+                reload()
+            }
+            selectedPaths.isNotEmpty() -> clearSelection()
+            relativePath.isNotBlank() -> navigateUp()
+            else -> onBack()
+        }
     }
 
     fun importCandidate(
@@ -271,7 +432,7 @@ fun SandboxFilePage(
             scope.launch {
                 val result = withContext(Dispatchers.IO) {
                     runCatching {
-                        SandboxFileRepository.exportToUri(
+                        SandboxFileRepository.exportEntriesToUri(
                             context,
                             app.packageName,
                             area,
@@ -281,7 +442,9 @@ fun SandboxFilePage(
                     }
                 }
                 busy = false
-                result.onFailure {
+                result.onSuccess {
+                    clearSelection()
+                }.onFailure {
                     reportFailure(t("sandbox.files.export_failed"), it)
                 }
             }
@@ -357,38 +520,42 @@ fun SandboxFilePage(
         }
     }
 
-    fun shareEntry(entry: SandboxFileEntry) {
-        if (entry.isDirectory) return
+    fun shareEntries(entries: List<SandboxFileEntry>) {
+        if (entries.isEmpty() || entries.any { it.isDirectory }) return
         busy = true
         scope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    SandboxFileRepository.prepareShareFile(
+                    SandboxFileRepository.prepareShareFiles(
                         context,
                         app.packageName,
                         area,
-                        entry
+                        entries
                     )
                 }
             }
             busy = false
-            result.onSuccess { file ->
+            result.onSuccess { files ->
                 runCatching {
                     val authority = context.packageName + ".blackbox.FileProvider"
-                    val uri = BlackBoxFileProvider.getUriForFile(context, authority, file)
-                    val mime = MimeTypeMap.getSingleton()
-                        .getMimeTypeFromExtension(
-                            file.extension.lowercase(Locale.ROOT)
-                        )
-                        ?: "application/octet-stream"
-                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                        type = mime
-                        putExtra(Intent.EXTRA_STREAM, uri)
+                    val uris = files.mapTo(ArrayList()) { file ->
+                        BlackBoxFileProvider.getUriForFile(context, authority, file)
+                    }
+                    val sendIntent = Intent(
+                        if (uris.size == 1) Intent.ACTION_SEND else Intent.ACTION_SEND_MULTIPLE
+                    ).apply {
+                        type = "*/*"
+                        if (uris.size == 1) {
+                            putExtra(Intent.EXTRA_STREAM, uris.first())
+                        } else {
+                            putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                        }
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
                     context.startActivity(
                         Intent.createChooser(sendIntent, t("sandbox.files.share"))
                     )
+                    clearSelection()
                 }.onFailure {
                     reportFailure(t("sandbox.files.share_failed"), it)
                 }
@@ -430,31 +597,71 @@ fun SandboxFilePage(
     }
 
     pendingAction?.let { entry ->
+        val actionEntries = if (selectedPaths.isNotEmpty() &&
+            entry.relativePath in selectedPaths
+        ) {
+            entries.filter { it.relativePath in selectedPaths }
+        } else {
+            listOf(entry)
+        }
         FileActionDialog(
-            entry = entry,
+            entries = actionEntries,
+            batchMode = selectedPaths.isNotEmpty(),
+            onCopy = {
+                pendingAction = null
+                transferRequest = FileTransferRequest(
+                    entries = actionEntries,
+                    batchMode = selectedPaths.isNotEmpty(),
+                    sourceArea = area,
+                    sourcePath = relativePath,
+                    mode = FileTransferMode.COPY
+                )
+                transferVisible = true
+            },
+            onMove = {
+                pendingAction = null
+                transferRequest = FileTransferRequest(
+                    entries = actionEntries,
+                    batchMode = selectedPaths.isNotEmpty(),
+                    sourceArea = area,
+                    sourcePath = relativePath,
+                    mode = FileTransferMode.MOVE
+                )
+                transferVisible = true
+            },
             onExport = {
                 pendingAction = null
-                pendingExport = entry
+                pendingExport = actionEntries
                 exportLauncher.launch(
-                    if (entry.isDirectory) "${entry.name}.zip" else entry.name
+                    if (actionEntries.size > 1) {
+                        "PCP-export.zip"
+                    } else {
+                        val target = actionEntries.first()
+                        if (target.isDirectory) "${target.name}.zip" else target.name
+                    }
                 )
             },
             onProperties = {
-                pendingAction = null
-                showProperties(entry)
+                if (actionEntries.size == 1 && selectedPaths.isEmpty()) {
+                    pendingAction = null
+                    showProperties(actionEntries.first())
+                }
             },
             onRename = {
-                pendingAction = null
-                pendingRename = entry
-                renameName = entry.name
+                if (actionEntries.size == 1 && selectedPaths.isEmpty()) {
+                    pendingAction = null
+                    pendingRename = actionEntries.first()
+                    renameName = actionEntries.first().name
+                }
             },
             onShare = {
                 pendingAction = null
-                shareEntry(entry)
+                shareEntries(actionEntries)
             },
             onDelete = {
                 pendingAction = null
-                pendingDelete = entry
+                deleteBatchMode = selectedPaths.isNotEmpty()
+                pendingDelete = actionEntries
             },
             onDismiss = { pendingAction = null }
         )
@@ -491,38 +698,36 @@ fun SandboxFilePage(
         )
     }
 
-    pendingDelete?.let { file ->
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text(t("sandbox.files.delete_title")) },
-            text = { Text(file.name) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingDelete = null
-                        busy = true
-                        scope.launch {
-                            val result = withContext(Dispatchers.IO) {
-                                runCatching {
-                                    SandboxFileRepository.delete(app.packageName, area, file)
-                                }
-                            }
-                            busy = false
-                            result.onSuccess {
-                                reload()
-                            }.onFailure {
-                                reportFailure(t("sandbox.files.delete_failed"), it)
+    pendingDelete?.let { files ->
+        DeleteEntryDialog(
+            entries = files,
+            batchMode = deleteBatchMode,
+            onConfirm = {
+                pendingDelete = null
+                deleteBatchMode = false
+                busy = true
+                scope.launch {
+                    val result = withContext(Dispatchers.IO) {
+                        runCatching {
+                            files.forEach {
+                                SandboxFileRepository.delete(app.packageName, area, it)
                             }
                         }
                     }
-                ) {
-                    Text(t("sandbox.files.delete"))
+                    busy = false
+                    result.onSuccess {
+                        clearSelection()
+                        reload()
+                    }.onFailure {
+                        clearSelection()
+                        reload()
+                        reportFailure(t("sandbox.files.delete_failed"), it)
+                    }
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) {
-                    Text(t("common.cancel"))
-                }
+            onDismiss = {
+                pendingDelete = null
+                deleteBatchMode = false
             }
         )
     }
@@ -535,76 +740,619 @@ fun SandboxFilePage(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp)
         ) {
             Spacer(Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(
-                    space = 14.dp,
-                    alignment = Alignment.CenterHorizontally
-                ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                SandboxFileArea.entries.forEach { candidate ->
-                    FilterChip(
-                        selected = candidate == area,
-                        onClick = { switchArea(candidate) },
-                        label = { Text(t(candidate.titleKey)) }
-                    )
-                }
-            }
-
-            Text(
-                text = displayPath(area, relativePath),
-                modifier = Modifier.padding(top = 8.dp, bottom = 6.dp),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.StartEllipsis
+            PcpCategoryTabs(
+                labels = SandboxFileArea.entries.map { t(it.titleKey) },
+                selectedIndex = area.ordinal,
+                onSelect = { switchArea(SandboxFileArea.entries[it]) }
             )
 
-            if (busy) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                    Text(t("sandbox.files.working"))
-                }
-            }
-
-            PullToRefreshBox(
-                isRefreshing = refreshing,
-                onRefresh = { reload(showRefreshIndicator = true) },
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
             ) {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 76.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Text(
+                    text = displayPath(area, relativePath),
+                    modifier = Modifier.padding(
+                        start = 26.dp,
+                        end = 26.dp,
+                        top = 8.dp,
+                        bottom = 6.dp
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.StartEllipsis
+                )
+
+                if (busy) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 26.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                        Text(t("sandbox.files.working"))
+                    }
+                }
+
+                PullToRefreshBox(
+                    isRefreshing = refreshing,
+                    onRefresh = { reload(showRefreshIndicator = true) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
                 ) {
-                    when {
-                        loading -> item {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(180.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator()
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 76.dp)
+                    ) {
+                        if (relativePath.isNotBlank()) {
+                            item(key = "parent-directory") {
+                                SandboxParentRow(
+                                    enabled = selectedPaths.isEmpty(),
+                                    onClick = ::navigateUp
+                                )
                             }
                         }
-                        entries.isEmpty() -> item {
+                        when {
+                            loading -> item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(180.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator()
+                                }
+                            }
+                            entries.isEmpty() -> item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(180.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = t("sandbox.files.empty"),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            else -> items(entries, key = { it.relativePath }) { entry ->
+                                PcpSelectableFileRow(
+                                    itemKey = entry.relativePath,
+                                    bookmarked = entry.relativePath in bookmarkedPaths,
+                                    selected = entry.relativePath in selectedPaths,
+                                    selectionMode = selectedPaths.isNotEmpty(),
+                                    onOpen = { handleEntryClick(entry) },
+                                    onLongPress = if (selectedPaths.isEmpty() ||
+                                        entry.relativePath in selectedPaths
+                                    ) {
+                                        { pendingAction = entry }
+                                    } else {
+                                        null
+                                    },
+                                    onSelect = { selectBySwipe(entry) },
+                                    onBookmark = { toggleBookmark(entry) }
+                                ) {
+                                    FileEntryIcon(entry = entry, apkIcon = app.icon)
+                                    Spacer(Modifier.width(12.dp))
+                                    FileEntryInfo(
+                                        entry = entry,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+                        item { Spacer(Modifier.height(8.dp)) }
+                    }
+                }
+            }
+        }
+
+        if (selectedPaths.isEmpty()) {
+            FileToolBar(
+                canGoBack = backHistory.isNotEmpty(),
+                canGoForward = forwardHistory.isNotEmpty(),
+                canGoUp = relativePath.isNotBlank(),
+                enabled = !busy,
+                onBack = ::navigateBack,
+                onForward = ::navigateForward,
+                onAdd = { showAddDialog = true },
+                onUp = ::navigateUp,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+            )
+        } else {
+            PcpSelectionToolBar(
+                enabled = !busy,
+                onSelectAll = {
+                    selectedPaths = entries.mapTo(mutableSetOf()) { it.relativePath }
+                    selectionAnchor = null
+                },
+                onClear = ::clearSelection,
+                onInvert = {
+                    selectedPaths = entries
+                        .mapTo(mutableSetOf()) { it.relativePath }
+                        .minus(selectedPaths)
+                    selectionAnchor = null
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+            )
+        }
+    }
+
+    if (transferRequest != null) {
+        Dialog(
+            onDismissRequest = {
+                closeTransfer()
+                reload()
+            },
+            properties = DialogProperties(
+                usePlatformDefaultWidth = false,
+                decorFitsSystemWindows = false
+            )
+        ) {
+            Box(Modifier.fillMaxSize()) {
+                AnimatedVisibility(
+                    visible = transferVisible,
+                    enter = fadeIn(tween(140)),
+                    exit = fadeOut(tween(200)),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.32f))
+                            .clickable(
+                                interactionSource = remember {
+                                    androidx.compose.foundation.interaction.MutableInteractionSource()
+                                },
+                                indication = null
+                            ) {
+                                closeTransfer()
+                                reload()
+                            }
+                    )
+                }
+
+                AnimatedVisibility(
+                    visible = transferVisible,
+                    enter = slideInVertically(
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            delayMillis = 80,
+                            easing = FastOutSlowInEasing
+                        ),
+                        initialOffsetY = { it }
+                    ),
+                    exit = slideOutVertically(
+                        animationSpec = tween(260, easing = FastOutSlowInEasing),
+                        targetOffsetY = { it }
+                    ),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.88f)
+                ) {
+                    transferRequest?.let { request ->
+                        FileTransferSheet(
+                            app = app,
+                            request = request,
+                            bookmarksFor = ::bookmarksFor,
+                            onClose = {
+                                closeTransfer()
+                                reload()
+                            },
+                            onToast = onToast,
+                            onCompleted = { mode, _, _, transferredCount ->
+                                closeTransfer()
+                                clearSelection()
+                                reload()
+                                if (transferredCount > 0) {
+                                    onToast(
+                                        t(
+                                            if (mode == FileTransferMode.COPY) {
+                                                "sandbox.files.copied"
+                                            } else {
+                                                "sandbox.files.moved"
+                                            }
+                                        ),
+                                        false
+                                    )
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FileTransferSheet(
+    app: SandboxApp,
+    request: FileTransferRequest,
+    bookmarksFor: (SandboxFileArea, String) -> Set<String>,
+    onClose: () -> Unit,
+    onToast: (String, Boolean) -> Unit,
+    onCompleted: (
+        FileTransferMode,
+        SandboxFileArea,
+        String,
+        Int
+    ) -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var targetArea by remember(request) { mutableStateOf(request.sourceArea) }
+    var targetPath by remember(request) { mutableStateOf(request.sourcePath) }
+    var targetEntries by remember(request) {
+        mutableStateOf(emptyList<SandboxFileEntry>())
+    }
+    var targetBookmarks by remember(request) { mutableStateOf<Set<String>>(emptySet()) }
+    var loading by remember(request) { mutableStateOf(true) }
+    var busy by remember(request) { mutableStateOf(false) }
+    var newFolderOpen by remember(request) { mutableStateOf(false) }
+    var newFolderName by remember(request) { mutableStateOf("") }
+    var conflictOpen by remember(request) { mutableStateOf(false) }
+    var conflictIndex by remember(request) { mutableStateOf<Int?>(null) }
+    var conflictPolicy by remember(request) {
+        mutableStateOf<SandboxImportConflictAction?>(null)
+    }
+    var completedTransfers by remember(request) { mutableStateOf(0) }
+    var nextTransferIndex by remember(request) { mutableStateOf(0) }
+
+    fun loadTarget() {
+        loading = true
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val files = SandboxFileRepository.list(
+                        app.packageName,
+                        targetArea,
+                        targetPath
+                    )
+                    val marked = bookmarksFor(targetArea, targetPath)
+                    files.sortedWith(
+                        compareByDescending<SandboxFileEntry> {
+                            it.relativePath in marked
+                        }.thenByDescending { it.isDirectory }
+                            .thenBy { it.name.lowercase(Locale.ROOT) }
+                    ) to marked
+                }
+            }
+            loading = false
+            result.onSuccess { (files, marked) ->
+                targetEntries = files
+                targetBookmarks = marked
+            }
+                .onFailure {
+                    targetEntries = emptyList()
+                    targetBookmarks = emptySet()
+                    onToast(
+                        t("sandbox.files.read_failed") + ": " +
+                            (it.message ?: it.javaClass.simpleName),
+                        true
+                    )
+                }
+        }
+    }
+
+    LaunchedEffect(targetArea, targetPath) {
+        loadTarget()
+    }
+
+    val sourceParent = parentPath(request.entry.relativePath)
+    val targetInsideSource = request.entries.any { entry ->
+        entry.isDirectory &&
+            targetArea == request.sourceArea &&
+            (
+                targetPath == entry.relativePath ||
+                    targetPath.startsWith(entry.relativePath + "/")
+                )
+    }
+    val sameDirectory = targetArea == request.sourceArea &&
+        targetPath == sourceParent
+    val canConfirm = !busy && !loading && !sameDirectory && !targetInsideSource
+
+    fun createFolder() {
+        val name = newFolderName.trim()
+        if (name.isBlank() || busy) return
+        busy = true
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    SandboxFileRepository.createEntry(
+                        app.packageName,
+                        targetArea,
+                        targetPath,
+                        name,
+                        isDirectory = true
+                    )
+                }
+            }
+            busy = false
+            result.onSuccess {
+                newFolderOpen = false
+                newFolderName = ""
+                loadTarget()
+            }.onFailure {
+                onToast(
+                    t("sandbox.files.create_failed") + ": " +
+                        (it.message ?: it.javaClass.simpleName),
+                    true
+                )
+            }
+        }
+    }
+
+    fun performTransfer(
+        startIndex: Int = 0,
+        firstAction: SandboxImportConflictAction? = null
+    ) {
+        if (!canConfirm) return
+        busy = true
+        scope.launch {
+            for (index in startIndex until request.entries.size) {
+                val entry = request.entries[index]
+                val action = if (index == startIndex) firstAction else conflictPolicy
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        if (request.mode == FileTransferMode.COPY) {
+                            SandboxFileRepository.copy(
+                                app.packageName,
+                                request.sourceArea,
+                                entry,
+                                targetArea,
+                                targetPath,
+                                action
+                            )
+                        } else {
+                            SandboxFileRepository.move(
+                                app.packageName,
+                                request.sourceArea,
+                                entry,
+                                targetArea,
+                                targetPath,
+                                action
+                            )
+                        }
+                    }
+                }
+                val error = result.exceptionOrNull()
+                if (error != null) {
+                    if (error.message == "file_exists" && action == null) {
+                        conflictIndex = index
+                        nextTransferIndex = index
+                        conflictOpen = true
+                        busy = false
+                        return@launch
+                    }
+                    busy = false
+                    onToast(
+                        t(
+                            if (request.mode == FileTransferMode.COPY) {
+                                "sandbox.files.copy_failed"
+                            } else {
+                                "sandbox.files.move_failed"
+                            }
+                        ) + ": " + (error.message ?: error.javaClass.simpleName),
+                        true
+                    )
+                    return@launch
+                }
+                if (result.getOrNull() != null) {
+                    completedTransfers++
+                }
+                nextTransferIndex = index + 1
+            }
+            busy = false
+            conflictIndex = null
+            conflictPolicy = null
+            nextTransferIndex = 0
+            onCompleted(
+                request.mode,
+                targetArea,
+                targetPath,
+                completedTransfers
+            )
+            completedTransfers = 0
+        }
+    }
+
+    fun confirmTransfer() {
+        if (!canConfirm) return
+        if (conflictIndex != null) {
+            conflictOpen = true
+        } else {
+            performTransfer(nextTransferIndex)
+        }
+    }
+
+    if (conflictOpen) {
+        val index = conflictIndex ?: 0
+        FileConflictDialog(
+            fileName = request.entries[index].name,
+            showApplyToFollowing = request.entries.size > 1,
+            replaceLabel = t(
+                if (request.mode == FileTransferMode.COPY) {
+                    "sandbox.files.conflict_copy_replace"
+                } else {
+                    "sandbox.files.conflict_replace"
+                }
+            ),
+            keepBothLabel = t(
+                if (request.mode == FileTransferMode.COPY) {
+                    "sandbox.files.conflict_copy_keep_both"
+                } else {
+                    "sandbox.files.conflict_keep_both"
+                }
+            ),
+            onDismiss = { conflictOpen = false },
+            onConfirm = { action, applyToFollowing ->
+                conflictOpen = false
+                if (applyToFollowing) conflictPolicy = action
+                performTransfer(index, action)
+            }
+        )
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        color = MaterialTheme.colorScheme.background,
+        tonalElevation = 0.dp,
+        shadowElevation = 12.dp
+    ) {
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier.semantics {
+                        contentDescription = t("common.cancel")
+                    }
+                ) {
+                    TransferCloseIcon()
+                }
+                Text(
+                    text = if (request.batchMode) {
+                        String.format(
+                            Locale.getDefault(),
+                            t(
+                                if (request.mode == FileTransferMode.COPY) {
+                                    "sandbox.files.copy_items_to"
+                                } else {
+                                    "sandbox.files.move_items_to"
+                                }
+                            ),
+                            request.entries.size
+                        )
+                    } else {
+                        t(
+                            if (request.mode == FileTransferMode.COPY) {
+                                "sandbox.files.copy_to"
+                            } else {
+                                "sandbox.files.move_to"
+                            }
+                        )
+                    },
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                IconButton(
+                    onClick = { newFolderOpen = true },
+                    enabled = !busy,
+                    modifier = Modifier.semantics {
+                        contentDescription = t("sandbox.files.new_folder")
+                    }
+                ) {
+                    FolderPlusIcon()
+                }
+                IconButton(
+                    onClick = ::confirmTransfer,
+                    enabled = canConfirm,
+                    modifier = Modifier.semantics {
+                        contentDescription = t("common.confirm")
+                    }
+                ) {
+                    TransferConfirmIcon(enabled = canConfirm)
+                }
+            }
+
+            HorizontalDivider()
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                FileEntryIcon(entry = request.entry, apkIcon = app.icon)
+                Spacer(Modifier.width(12.dp))
+                FileEntryInfo(entry = request.entry, modifier = Modifier.weight(1f))
+            }
+
+            PcpCategoryTabs(
+                labels = SandboxFileArea.entries.map { t(it.titleKey) },
+                selectedIndex = targetArea.ordinal,
+                onSelect = { index ->
+                    val nextArea = SandboxFileArea.entries[index]
+                    if (nextArea != targetArea) {
+                        targetArea = nextArea
+                        targetPath = ""
+                    }
+                }
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp)
+                    .padding(horizontal = 26.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = displayPath(targetArea, targetPath),
+                    modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.StartEllipsis
+                )
+                if (busy) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                }
+            }
+
+            if (loading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(bottom = 20.dp)
+                ) {
+                    if (targetPath.isNotBlank()) {
+                        item(key = "transfer-parent-directory") {
+                            SandboxParentRow(
+                                enabled = true,
+                                onClick = { targetPath = parentPath(targetPath) }
+                            )
+                        }
+                    }
+                    if (targetEntries.isEmpty()) {
+                        item {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(180.dp),
+                                    .height(140.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
@@ -613,52 +1361,221 @@ fun SandboxFilePage(
                                 )
                             }
                         }
-                        else -> items(entries, key = { it.relativePath }) { entry ->
-                            SandboxFileRow(
+                    } else {
+                        items(targetEntries, key = { it.relativePath }) { entry ->
+                            FileTransferBrowserRow(
                                 entry = entry,
                                 apkIcon = app.icon,
+                                bookmarked = entry.relativePath in targetBookmarks,
                                 onOpen = {
                                     if (entry.isDirectory) {
-                                        navigateTo(entry.relativePath)
-                                    } else if (entry.isEditableText) {
-                                        onEditText(
-                                            SandboxTextEditorTarget(
-                                                packageName = app.packageName,
-                                                area = area,
-                                                relativePath = entry.relativePath,
-                                                displayName = entry.name
-                                            )
+                                        targetPath = childPath(
+                                            targetPath,
+                                            entry.name
                                         )
                                     }
-                                },
-                                onLongPress = { pendingAction = entry }
+                                }
                             )
                         }
                     }
-                    item { Spacer(Modifier.height(8.dp)) }
                 }
             }
         }
+    }
 
-        FileToolBar(
-            canGoBack = backHistory.isNotEmpty(),
-            canGoForward = forwardHistory.isNotEmpty(),
-            canGoUp = relativePath.isNotBlank(),
-            enabled = !busy,
-            onBack = ::navigateBack,
-            onForward = ::navigateForward,
-            onAdd = { showAddDialog = true },
-            onUp = ::navigateUp,
+    if (newFolderOpen) {
+        CreateTransferFolderDialog(
+            name = newFolderName,
+            onNameChange = { newFolderName = it },
+            onCancel = {
+                newFolderOpen = false
+                newFolderName = ""
+            },
+            onConfirm = ::createFolder
+        )
+    }
+}
+
+@Composable
+private fun FileTransferBrowserRow(
+    entry: SandboxFileEntry,
+    apkIcon: Bitmap?,
+    bookmarked: Boolean,
+    onOpen: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(72.dp)
+    ) {
+        Row(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .clickable(enabled = entry.isDirectory, onClick = onOpen)
+                .padding(horizontal = 26.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FileEntryIcon(entry = entry, apkIcon = apkIcon)
+            Spacer(Modifier.width(12.dp))
+            FileEntryInfo(entry = entry, modifier = Modifier.weight(1f))
+        }
+        if (bookmarked) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(Color(0xFFFFD54F).copy(alpha = 0.24f))
+            )
+        }
+    }
+}
+
+@Composable
+private fun CreateTransferFolderDialog(
+    name: String,
+    onNameChange: (String) -> Unit,
+    onCancel: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    Dialog(onDismissRequest = onCancel) {
+        Surface(
+            modifier = Modifier
                 .fillMaxWidth()
+                .widthIn(max = 520.dp),
+            shape = RoundedCornerShape(22.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 8.dp
+        ) {
+            Column {
+                Text(
+                    text = t("sandbox.files.new_folder"),
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = onNameChange,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                    singleLine = true,
+                    placeholder = {
+                        Text(t("sandbox.files.name_placeholder"))
+                    }
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onCancel) {
+                        Text(t("common.cancel"), color = Color(0xFF2563EB))
+                    }
+                    TextButton(
+                        onClick = onConfirm,
+                        enabled = name.isNotBlank()
+                    ) {
+                        Text(t("common.confirm"), color = Color(0xFF2563EB))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TransferCloseIcon() {
+    val color = MaterialTheme.colorScheme.onSurface
+    Canvas(Modifier.size(24.dp)) {
+        val stroke = 2.dp.toPx()
+        drawLine(
+            color,
+            Offset(size.width * 0.28f, size.height * 0.28f),
+            Offset(size.width * 0.72f, size.height * 0.72f),
+            stroke,
+            StrokeCap.Round
+        )
+        drawLine(
+            color,
+            Offset(size.width * 0.72f, size.height * 0.28f),
+            Offset(size.width * 0.28f, size.height * 0.72f),
+            stroke,
+            StrokeCap.Round
+        )
+    }
+}
+
+@Composable
+private fun FolderPlusIcon() {
+    val color = MaterialTheme.colorScheme.onSurface
+    val background = MaterialTheme.colorScheme.surface
+    Canvas(Modifier.size(24.dp)) {
+        val stroke = 1.8.dp.toPx()
+        val folder = Path().apply {
+            moveTo(size.width * 0.12f, size.height * 0.28f)
+            lineTo(size.width * 0.42f, size.height * 0.28f)
+            lineTo(size.width * 0.52f, size.height * 0.4f)
+            lineTo(size.width * 0.84f, size.height * 0.4f)
+            lineTo(size.width * 0.84f, size.height * 0.78f)
+            lineTo(size.width * 0.12f, size.height * 0.78f)
+            close()
+        }
+        drawPath(folder, color, style = Stroke(stroke))
+        drawCircle(
+            color = color,
+            radius = size.width * 0.18f,
+            center = Offset(size.width * 0.76f, size.height * 0.74f)
+        )
+        drawLine(
+            background,
+            Offset(size.width * 0.67f, size.height * 0.74f),
+            Offset(size.width * 0.85f, size.height * 0.74f),
+            stroke,
+            StrokeCap.Round
+        )
+        drawLine(
+            background,
+            Offset(size.width * 0.76f, size.height * 0.65f),
+            Offset(size.width * 0.76f, size.height * 0.83f),
+            stroke,
+            StrokeCap.Round
+        )
+    }
+}
+
+@Composable
+private fun TransferConfirmIcon(enabled: Boolean) {
+    val color = MaterialTheme.colorScheme.primary.copy(
+        alpha = if (enabled) 1f else 0.35f
+    )
+    Canvas(Modifier.size(24.dp)) {
+        val stroke = 2.2.dp.toPx()
+        drawLine(
+            color,
+            Offset(size.width * 0.2f, size.height * 0.52f),
+            Offset(size.width * 0.42f, size.height * 0.74f),
+            stroke,
+            StrokeCap.Round
+        )
+        drawLine(
+            color,
+            Offset(size.width * 0.42f, size.height * 0.74f),
+            Offset(size.width * 0.82f, size.height * 0.28f),
+            stroke,
+            StrokeCap.Round
         )
     }
 }
 
 @Composable
 private fun FileActionDialog(
-    entry: SandboxFileEntry,
+    entries: List<SandboxFileEntry>,
+    batchMode: Boolean,
+    onCopy: () -> Unit,
+    onMove: () -> Unit,
     onExport: () -> Unit,
     onProperties: () -> Unit,
     onRename: () -> Unit,
@@ -666,6 +1583,18 @@ private fun FileActionDialog(
     onDelete: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val primary = entries.first()
+    val heading = if (entries.size > 1) {
+        String.format(
+            Locale.getDefault(),
+            t("sandbox.files.multi_item_name"),
+            primary.name,
+            entries.size - 1
+        )
+    } else {
+        primary.name
+    }
+    val singleEditable = entries.size == 1 && !batchMode
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier
@@ -677,7 +1606,7 @@ private fun FileActionDialog(
         ) {
             Column {
                 Text(
-                    text = entry.name,
+                    text = heading,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
@@ -690,8 +1619,7 @@ private fun FileActionDialog(
                         DialogActionItem(
                             icon = FileActionIcon.COPY,
                             text = t("sandbox.files.copy"),
-                            enabled = false,
-                            onClick = {}
+                            onClick = onCopy
                         )
                         DialogActionItem(
                             icon = FileActionIcon.DELETE,
@@ -702,7 +1630,8 @@ private fun FileActionDialog(
                         DialogActionItem(
                             icon = FileActionIcon.PROPERTIES,
                             text = t("sandbox.files.properties"),
-                            onClick = onProperties
+                            onClick = onProperties,
+                            enabled = singleEditable
                         )
                         DialogActionItem(
                             icon = FileActionIcon.EXPORT,
@@ -710,28 +1639,22 @@ private fun FileActionDialog(
                             onClick = onExport
                         )
                     }
-                    Box(
-                        modifier = Modifier
-                            .width(1.dp)
-                            .fillMaxHeight()
-                            .background(MaterialTheme.colorScheme.outlineVariant)
-                    )
                     Column(modifier = Modifier.weight(1f)) {
                         DialogActionItem(
                             icon = FileActionIcon.MOVE,
                             text = t("sandbox.files.move"),
-                            enabled = false,
-                            onClick = {}
+                            onClick = onMove
                         )
                         DialogActionItem(
                             icon = FileActionIcon.RENAME,
                             text = t("sandbox.files.rename"),
-                            onClick = onRename
+                            onClick = onRename,
+                            enabled = singleEditable
                         )
                         DialogActionItem(
                             icon = FileActionIcon.SHARE,
                             text = t("sandbox.files.share"),
-                            enabled = !entry.isDirectory,
+                            enabled = entries.all { !it.isDirectory },
                             onClick = onShare
                         )
                     }
@@ -1079,6 +2002,9 @@ private fun PropertiesDialog(
 @Composable
 private fun FileConflictDialog(
     fileName: String,
+    showApplyToFollowing: Boolean = true,
+    replaceLabel: String = t("sandbox.files.conflict_replace"),
+    keepBothLabel: String = t("sandbox.files.conflict_keep_both"),
     onDismiss: () -> Unit,
     onConfirm: (SandboxImportConflictAction, Boolean) -> Unit
 ) {
@@ -1115,7 +2041,7 @@ private fun FileConflictDialog(
                     overflow = TextOverflow.Ellipsis
                 )
                 ConflictChoice(
-                    text = t("sandbox.files.conflict_replace"),
+                    text = replaceLabel,
                     selected = selected == SandboxImportConflictAction.REPLACE,
                     onClick = { selected = SandboxImportConflictAction.REPLACE }
                 )
@@ -1125,25 +2051,27 @@ private fun FileConflictDialog(
                     onClick = { selected = SandboxImportConflictAction.SKIP }
                 )
                 ConflictChoice(
-                    text = t("sandbox.files.conflict_keep_both"),
+                    text = keepBothLabel,
                     selected = selected == SandboxImportConflictAction.KEEP_BOTH,
                     onClick = { selected = SandboxImportConflictAction.KEEP_BOTH }
                 )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { applyToFollowing = !applyToFollowing }
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Checkbox(
-                        checked = applyToFollowing,
-                        onCheckedChange = { applyToFollowing = it }
-                    )
-                    Text(
-                        text = t("sandbox.files.conflict_apply_to_following"),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
+                if (showApplyToFollowing) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { applyToFollowing = !applyToFollowing }
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = applyToFollowing,
+                            onCheckedChange = { applyToFollowing = it }
+                        )
+                        Text(
+                            text = t("sandbox.files.conflict_apply_to_following"),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
                 HorizontalDivider()
                 Row(
@@ -1162,6 +2090,41 @@ private fun FileConflictDialog(
             }
         }
     }
+}
+
+@Composable
+private fun DeleteEntryDialog(
+    entries: List<SandboxFileEntry>,
+    batchMode: Boolean,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val title = if (batchMode) {
+        String.format(
+            Locale.getDefault(),
+            t("sandbox.files.delete_many_title"),
+            entries.size
+        )
+    } else {
+        t("sandbox.files.delete_title")
+    }
+    val displayName = entries.first().name
+    val remainingLabel = if (entries.size > 1) {
+        String.format(
+            Locale.getDefault(),
+            t("sandbox.files.and_other_items"),
+            entries.size - 1
+        )
+    } else null
+    PcpBatchDeleteDialog(
+        title = title,
+        displayName = displayName,
+        remainingLabel = remainingLabel,
+        warning = t("sandbox.files.delete_warning"),
+        confirmLabel = t("sandbox.files.delete"),
+        onConfirm = onConfirm,
+        onDismiss = onDismiss
+    )
 }
 
 @Composable
@@ -1560,55 +2523,65 @@ private fun RowScope.FileToolButton(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SandboxFileRow(
-    entry: SandboxFileEntry,
-    apkIcon: Bitmap?,
-    onOpen: () -> Unit,
-    onLongPress: () -> Unit
+private fun SandboxParentRow(
+    enabled: Boolean,
+    onClick: () -> Unit
 ) {
-    val modifiedTime = remember(entry.lastModified) {
-        formatModifiedTime(entry.lastModified)
-    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(72.dp)
-            .combinedClickable(
-                onClick = onOpen,
-                onLongClick = onLongPress
-            )
-            .padding(start = 10.dp, end = 10.dp),
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 26.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        FileEntryIcon(entry = entry, apkIcon = apkIcon)
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .background(Color(0xFFFFE2A8), RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            FolderGlyph(Color(0xFF8A5A00))
+        }
         Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
+        Text(
+            text = "..",
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+@Composable
+private fun FileEntryInfo(entry: SandboxFileEntry, modifier: Modifier = Modifier) {
+    val modifiedTime = remember(entry.lastModified) {
+        formatModifiedTime(entry.lastModified)
+    }
+    Column(modifier = modifier) {
+        Text(
+            text = entry.name,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(Modifier.height(3.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = entry.name,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                text = modifiedTime,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
             )
-            Spacer(Modifier.height(3.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            if (!entry.isDirectory) {
+                Spacer(Modifier.width(8.dp))
                 Text(
-                    text = modifiedTime,
+                    text = formatFileSize(entry.size),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1
                 )
-                if (!entry.isDirectory) {
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = formatFileSize(entry.size),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1
-                    )
-                }
             }
         }
     }
@@ -1722,6 +2695,22 @@ private data class PendingSandboxImport(
     val displayName: String
 )
 
+private enum class FileTransferMode {
+    COPY,
+    MOVE
+}
+
+private data class FileTransferRequest(
+    val entries: List<SandboxFileEntry>,
+    val batchMode: Boolean,
+    val sourceArea: SandboxFileArea,
+    val sourcePath: String,
+    val mode: FileTransferMode
+) {
+    val entry: SandboxFileEntry
+        get() = entries.first()
+}
+
 private fun SandboxFileEntry.kind(): FileEntryKind = when {
     isDirectory -> FileEntryKind.FOLDER
     name.substringAfterLast('.', "").equals("apk", ignoreCase = true) -> FileEntryKind.APK
@@ -1738,6 +2727,9 @@ private enum class FileToolIcon {
 
 private fun parentPath(path: String): String =
     if ('/' !in path) "" else path.substringBeforeLast('/')
+
+private fun childPath(parent: String, child: String): String =
+    if (parent.isBlank()) child else "$parent/$child"
 
 private fun displayPath(area: SandboxFileArea, relativePath: String): String {
     val base = when (area) {
